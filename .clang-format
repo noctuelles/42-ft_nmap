@@ -1,0 +1,12 @@
+BasedOnStyle: Google
+IndentWidth: 4
+UseTab: Never
+MaxEmptyLinesToKeep: 1
+AlwaysBreakAfterDefinitionReturnType: All
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+ColumnLimit: 80
+AlignConsecutiveDeclarations: true
+AlignConsecutiveAssignments: true
+PPIndentWidth: 1
