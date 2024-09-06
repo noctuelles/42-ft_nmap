@@ -6,7 +6,7 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/01 17:08:14 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/06 22:59:13 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -15,12 +15,13 @@ SRCS_DIR=srcs
 OBJS_DIR=objs
 INCS_DIR=includes
 
-SRCS=main.c
+SRCS=main.c \
+    opts_parsing.c
 
 OBJS=$(addprefix $(OBJS_DIR)/, $(SRCS:.c=.o))
 
 NAME=ft_nmap
-CFLAGS=-Wall -Wextra -Werror -Wpedantic
+CFLAGS=-Wall -Wextra -Werror -Wpedantic -g3
 CC=gcc
 RM=rm -rf
 
@@ -45,8 +46,6 @@ clean:
 
 fclean: clean
 	$(RM) $(NAME)
-	cd libpcap && \
-	make clean
 
 re: fclean all
 
