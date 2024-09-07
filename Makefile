@@ -6,7 +6,7 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/06 22:59:13 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/07 14:33:47 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -21,7 +21,7 @@ SRCS=main.c \
 OBJS=$(addprefix $(OBJS_DIR)/, $(SRCS:.c=.o))
 
 NAME=ft_nmap
-CFLAGS=-Wall -Wextra -Werror -Wpedantic -g3
+CFLAGS=-Wall -Wextra -Werror -Wpedantic -g3 -std=gnu11
 CC=gcc
 RM=rm -rf
 
