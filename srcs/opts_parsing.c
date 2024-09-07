@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/06 22:50:21 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/06 23:13:09 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/07 14:41:02 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,15 +20,26 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "utils.h"
+
 static const char *g_available_scan_types[] = {"SYN", "NULL", "FIN", "XMAS", "ACK", "UDP"};
 
+static struct option g_long_options[] = {{"help", no_argument, NULL, 0},
+                                         {"ports", required_argument, NULL, 'p'},
+                                         {"host", required_argument, NULL, 'h'},
+                                         {"speedup", required_argument, NULL, 'w'},
+                                         {"scan", required_argument, NULL, 's'},
+                                         {"file", required_argument, NULL, 'f'},
+                                         {NULL, 0, NULL, 0}};
+
 /**
- * @brief Parse the scan type from the input string and set the corresponding bit in the scan_type_mask. In order to be
- * valid, the input string should be a comma separated list of scan types. Available scan types are defined in the
+ * @brief Parse the scan type from the input string and set the corresponding
+ * bit in the scan_type_mask. In order to be valid, the input string should be a
+ * comma separated list of scan types. Available scan types are defined in the
  * g_available_scan_types variable.
  *
- * @note The scan type mask is a 64 bit integer where the first 6 bits are used to set the SYN, NULL, FIN, XMAS, ACK,
- * UDP.
+ * @note The scan type mask is a 64 bit integer where the first 6 bits are used
+ * to set the SYN, NULL, FIN, XMAS, ACK, UDP.
  *
  * @param input_scan_type The comma separated list of scan types.
  * @param scan_type_mask The mask to set the scan types.
@@ -49,14 +60,14 @@ parse_scan_type(const char *input_scan_type, uint64_t *scan_type_mask) {
             scan_type_len = strlen(g_available_scan_types[i]);
 
             if (strncmp(input_scan_type, g_available_scan_types[i], scan_type_len) == 0) {
-                *scan_type_mask |= 1U << i;
+                SET_BIT(*scan_type_mask, i);
                 break;
             }
             i++;
         }
         if (i == NSIZE(g_available_scan_types)) {
             error(0, 0, "invalid scan type: %s", input_scan_type);
-            return (-1);
+            return (1);
         }
         input_scan_type += scan_type_len;
         if (*input_scan_type == ',') {
@@ -74,10 +85,12 @@ parse_scan_type(const char *input_scan_type, uint64_t *scan_type_mask) {
 }
 
 /**
- * @brief Parse the port range from the input string and set the corresponding port_range array. The input string should
- * be in the form of "start-end" where start and end are the port range. The port range is inclusive.
+ * @brief Parse the port range from the input string and set the corresponding
+ * port_range array. The input string should be in the form of "start-end" where
+ * start and end are the port range. The port range is inclusive.
  *
- * @note The subject enforce the port range to be between 1 and 1024 (inclusive).
+ * @note The subject enforce the port range to be between 1 and 1024
+ * (inclusive).
  *
  * @param input_port_range The input string containing the port range.
  * @param port_range The port range array to set.
@@ -110,8 +123,10 @@ parse_port_range(const char *input_port_range, uint16_t port_range[2]) {
     }
     goto ok;
 invalid_port_range:
-    error(0, 0, "invalid port range -- should be between %u and %u (inclusive) and in the form <port>-<port>", MIN_PORT,
-          MAX_PORT);
+    error(0, 0,
+          "invalid port range -- should be between %u and %u (inclusive) and "
+          "in the form <port>-<port>",
+          MIN_PORT, MAX_PORT);
     return (1);
 ok:
     return (0);
@@ -119,22 +134,16 @@ ok:
 
 int
 parse_opts(int argc, char **argv, t_opts *opts) {
-    int           c              = 0;
-    int           opt_idx        = 0;
-    struct option long_options[] = {{"help", no_argument, &opts->help, 1},
-                                    {"ports", required_argument, NULL, 'p'},
-                                    {"host", required_argument, NULL, 'h'},
-                                    {"speedup", required_argument, NULL, 'w'},
-                                    {"scan", required_argument, NULL, 's'},
-                                    {"file", required_argument, NULL, 'f'},
-                                    {NULL, 0, NULL, 0}};
+    int c       = 0;
+    int opt_idx = 0;
 
     if (argc < 2) {
         error(0, 0, "too few arguments provided");
         return (1);
     }
+
     /* Options default value */
-    opts->scan_type       = 10;
+    opts->scan_type       = 64U; /* 64 is 0b111111, so all the scans are enabled by default. */
     opts->port_range[0]   = MIN_PORT;
     opts->port_range[1]   = MAX_PORT;
     opts->threads         = 0;
@@ -142,25 +151,18 @@ parse_opts(int argc, char **argv, t_opts *opts) {
     opts->hosts_file_path = NULL;
     opts->help            = 0;
 
-    while ((c = getopt_long(argc, argv, "p:h:w:s:f:", long_options, &opt_idx)) != -1) {
+    while ((c = getopt_long(argc, argv, "p:h:w:s:f:", g_long_options, &opt_idx)) != -1) {
         switch (c) {
             case 0:
+                if (strcmp(g_long_options[opt_idx].name, "help") == 0) {
+                    opts->help = 1;
+                }
                 break;
             case 'f':
-                if (opts->host) {
-                    error(0, 0, "incompatible options -- 'f' and 'h'");
-                    return (1);
-                } else {
-                    opts->hosts_file_path = optarg;
-                }
+                opts->hosts_file_path = optarg;
                 break;
             case 'h':
-                if (opts->hosts_file_path) {
-                    error(0, 0, "incompatible options -- 'f' and 'h'");
-                    return (1);
-                } else {
-                    opts->host = optarg;
-                }
+                opts->host = optarg;
                 break;
             case 'w': {
                 char *endptr = NULL;
@@ -178,12 +180,12 @@ parse_opts(int argc, char **argv, t_opts *opts) {
                 break;
             }
             case 's':
-                if (parse_scan_type(optarg, &opts->scan_type) == -1) {
+                if (parse_scan_type(optarg, &opts->scan_type) == 1) {
                     return (1);
                 }
                 break;
             case 'p':
-                if (parse_port_range(optarg, opts->port_range) == -1) {
+                if (parse_port_range(optarg, opts->port_range) == 1) {
                     return (1);
                 }
                 break;

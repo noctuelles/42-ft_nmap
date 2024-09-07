@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/06 22:50:51 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/06 23:05:49 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/07 14:32:07 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,8 +14,6 @@
 #define OPTS_PARSING_H
 
 #include <stdint.h>
-
-#define NSIZE(x) (sizeof(x) / sizeof(x[0]))
 
 #define MIN_PORT 1
 #define MAX_PORT 1024
