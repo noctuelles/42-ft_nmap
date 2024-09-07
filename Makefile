@@ -6,7 +6,7 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/07 14:33:47 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/07 15:57:41 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -16,7 +16,8 @@ OBJS_DIR=objs
 INCS_DIR=includes
 
 SRCS=main.c \
-    opts_parsing.c
+    opts_parsing.c \
+	wrapper.c
 
 OBJS=$(addprefix $(OBJS_DIR)/, $(SRCS:.c=.o))
 
