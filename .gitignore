@@ -1,3 +1,5 @@
 objs/
 ft_nmap
 .vscode
+.venv
+.vagrant
