@@ -3,8 +3,8 @@
     {
       "type": "shell",
       "label": "run makefile",
-      "command": "make",
-      "args": ["all"],
+      "command": "sudo",
+      "args": ["make", "all"],
       "problemMatcher": []
     }
   ],
