@@ -6,18 +6,21 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/07 15:57:41 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/10 13:41:40 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
 LIBPCAP_DIR=libpcap
+LIBFT_DIR=libft
+
 SRCS_DIR=srcs
 OBJS_DIR=objs
 INCS_DIR=includes
 
 SRCS=main.c \
-    opts_parsing.c \
-	wrapper.c
+    parsing/ip.c \
+	parsing/opts.c \
+	utils/wrapper.c
 
 OBJS=$(addprefix $(OBJS_DIR)/, $(SRCS:.c=.o))
 
@@ -27,20 +30,25 @@ CC=gcc
 RM=rm -rf
 
 LIBPCAP = $(LIBPCAP_DIR)/libpcap.a
+LIBFT   = $(LIBFT_DIR)/libft.a
 
 all: $(NAME)
 
-$(NAME): $(OBJS) $(LIBPCAP)
-	$(CC) -o $(NAME) $(OBJS) -L $(LIBPCAP_DIR) -lpcap
+$(NAME): $(OBJS) $(LIBPCAP) $(LIBFT)
+	$(CC) -o $(NAME) $(OBJS) -L $(LIBPCAP_DIR) -lpcap -L $(LIBFT_DIR) -lft
 
 $(OBJS_DIR)/%.o: $(SRCS_DIR)/%.c
-	$(CC) $(CFLAGS) -I $(INCS_DIR) -I $(LIBPCAP_DIR) -c $< -o $@
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -I $(INCS_DIR) -I $(LIBPCAP_DIR) -I $(LIBFT_DIR)/includes -c $< -o $@
 
 $(LIBPCAP):
 	cd libpcap && \
 	./autogen.sh && \
 	./configure && \
 	make
+
+$(LIBFT):
+	make -C $(LIBFT_DIR)
 
 clean:
 	$(RM) $(OBJS)

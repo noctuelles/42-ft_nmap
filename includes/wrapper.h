@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/07 15:53:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/07 15:56:56 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/10 11:21:47 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,7 +24,11 @@ int     Pcap_setfilter(pcap_t *p, struct bpf_program *fp);
 
 /* Libc wrapper */
 
-int     Socket(int domain, int type, int protocol);
-ssize_t Sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
+int              Socket(int domain, int type, int protocol);
+ssize_t          Sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
+struct addrinfo *res_host_serv(const char *host, const char *serv, int sock_family, int sock_type);
+FILE            *Fopen(const char *path, const char *mode);
+ssize_t          Getline(char **lineptr, size_t *n, FILE *stream);
+void            *Malloc(size_t size);
 
 #endif

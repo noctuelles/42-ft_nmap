@@ -6,12 +6,15 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/07 14:56:17 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/07 15:57:51 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/10 13:35:50 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <errno.h>
 #include <error.h>
+#include <netdb.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 
@@ -31,6 +34,16 @@ Pcap_findalldevs(pcap_if_t **alldevsp) {
         return (1);
     }
     return (0);
+}
+
+void *
+Malloc(size_t size) {
+    void *ptr = malloc(size);
+    if (ptr == NULL) {
+        error(0, 0, "malloc: %s", strerror(errno));
+        return (NULL);
+    }
+    return (ptr);
 }
 
 pcap_t *
@@ -78,6 +91,43 @@ Sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr
     ssize_t ret = sendto(sockfd, buf, len, flags, dest_addr, addrlen);
     if (ret == -1) {
         error(0, 0, "sendto: %s", strerror(errno));
+        return (-1);
+    }
+    return (ret);
+}
+
+struct addrinfo *
+res_host_serv(const char *host, const char *serv, int sock_family, int sock_type) {
+    int              ret   = 0;
+    struct addrinfo  hints = {0};
+    struct addrinfo *res   = NULL;
+
+    hints.ai_flags    = AI_CANONNAME;
+    hints.ai_family   = sock_family;
+    hints.ai_socktype = sock_type;
+    if ((ret = getaddrinfo(host, serv, &hints, &res)) != 0) {
+        error(0, 0, "%s: %s", (host != NULL) ? host : serv, gai_strerror(ret));
+        return (NULL);
+    }
+    return (res);
+}
+
+FILE *
+Fopen(const char *path, const char *mode) {
+    FILE *fd = fopen(path, mode);
+    if (fd == NULL) {
+        error(0, 0, "fopen: %s", strerror(errno));
+        return (NULL);
+    }
+    return (fd);
+}
+
+ssize_t
+Getline(char **lineptr, size_t *n, FILE *stream) {
+    errno       = 0;
+    ssize_t ret = getline(lineptr, n, stream);
+    if (ret == -1 && errno != 0) {
+        error(0, 0, "getline: %s", strerror(errno));
         return (-1);
     }
     return (ret);

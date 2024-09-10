@@ -1,16 +1,14 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   opts_parsing.c                                     :+:      :+:    :+:   */
+/*   opts.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/09/06 22:50:21 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/10 10:50:04 by plouvel          ###   ########.fr       */
+/*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
+/*   Updated: 2024/09/10 13:36:52 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
-
-#include "opts_parsing.h"
 
 #include <errno.h>
 #include <error.h>
@@ -20,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "opts_parsing.h"
 #include "utils.h"
 
 static const char *g_available_scan_types[] = {"SYN", "NULL", "FIN", "XMAS", "ACK", "UDP"};

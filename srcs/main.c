@@ -6,14 +6,16 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/10 10:56:11 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/10 13:16:56 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <error.h>
 #include <stdio.h>
 
+#include "libft.h"
 #include "opts_parsing.h"
+#include "parsing.h"
 #include "pcap.h"
 #include "wrapper.h"
 
@@ -53,6 +55,18 @@ main(int argc, char **argv) {
     if (g_opts.host == NULL && g_opts.hosts_file_path == NULL) {
         error(0, 0, "at least provide a host or a file containing the hosts to scan");
         return (1);
+    }
+
+    t_list *hosts = NULL;
+
+    if (g_opts.host) {
+        if ((hosts = parse_host_from_str(g_opts.host)) == NULL) {
+            return (1);
+        }
+    } else if (g_opts.hosts_file_path) {
+        if ((hosts = parse_host_from_file(g_opts.hosts_file_path)) == NULL) {
+            return (1);
+        }
     }
 
     pcap_if_t *devs = NULL;
