@@ -6,12 +6,14 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/10 13:16:56 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/10 14:30:42 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <error.h>
+#include <netinet/tcp.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "libft.h"
 #include "opts_parsing.h"
@@ -37,6 +39,8 @@ print_usage(void) {
         "  --file, -f\t\tThe file containing the hosts to scan. Note that you cannot set the -f and -h options : it's one or another, not "
         "both.\n");
 }
+
+#define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
 
 /* https://www.tcpdump.org/pcap.html */
 int
@@ -72,6 +76,10 @@ main(int argc, char **argv) {
     pcap_if_t *devs = NULL;
     pcap_t    *handle;
 
+    t_resv_host       *dest = hosts->content;
+    struct sockaddr_in local_sockaddr;
+    char              *local_device_name;
+
     if (Pcap_findalldevs(&devs) == -1) {
         return (1);
     }
@@ -79,9 +87,23 @@ main(int argc, char **argv) {
         error(0, 0, "no network interface found");
         return (1);
     }
-    if ((handle = Pcap_open_live(devs->name, 262144, 0, 1000)) == NULL) {
+    for (struct pcap_addr *addr = devs->addresses; addr != NULL; addr = addr->next) {
+        if (addr->addr->sa_family == AF_INET) {
+            memcpy(&local_sockaddr, addr->addr, sizeof(local_sockaddr));
+            local_device_name = strdup(devs->name);
+            break;
+        }
+    }
+    if (local_device_name == NULL) {
+        error(0, 0, "no network interface found");
         return (1);
     }
+    pcap_freealldevs(devs);
+
+    printf("Using interface device %s\n", local_device_name);
+    printf("Local IP address: %s\n", inet_ntoa(local_sockaddr.sin_addr));
+    printf("Destination IP address: %s\n", inet_ntoa(dest->sockaddr.sin_addr));
+
     pcap_close(handle);
     return (0);
 }
