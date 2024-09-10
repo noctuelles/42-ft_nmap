@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/10 10:51:11 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/10 10:56:11 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,6 +14,8 @@
 #include <stdio.h>
 
 #include "opts_parsing.h"
+#include "pcap.h"
+#include "wrapper.h"
 
 extern const char *program_invocation_short_name;
 t_opts             g_opts = {0}; /* Program options */
@@ -34,6 +36,7 @@ print_usage(void) {
         "both.\n");
 }
 
+/* https://www.tcpdump.org/pcap.html */
 int
 main(int argc, char **argv) {
     if (parse_opts(argc, argv, &g_opts) == 1) {
@@ -51,5 +54,20 @@ main(int argc, char **argv) {
         error(0, 0, "at least provide a host or a file containing the hosts to scan");
         return (1);
     }
+
+    pcap_if_t *devs = NULL;
+    pcap_t    *handle;
+
+    if (Pcap_findalldevs(&devs) == -1) {
+        return (1);
+    }
+    if (devs == NULL) {
+        error(0, 0, "no network interface found");
+        return (1);
+    }
+    if ((handle = Pcap_open_live(devs->name, 262144, 0, 1000)) == NULL) {
+        return (1);
+    }
+    pcap_close(handle);
     return (0);
 }
