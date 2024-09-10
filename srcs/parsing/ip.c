@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:40 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/10 13:36:41 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/10 14:10:15 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,6 +27,7 @@ new_resv_host_node(struct addrinfo *res) {
     if ((resv_host = Malloc(sizeof(t_resv_host))) == NULL) {
         return (NULL);
     }
+    memcpy(&resv_host->sockaddr, res->ai_addr, res->ai_addrlen);
     if (res->ai_canonname == NULL) {
         resv_host->hostname = NULL;
     } else {

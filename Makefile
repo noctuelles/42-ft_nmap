@@ -6,7 +6,7 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/10 13:41:40 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/10 14:59:47 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -20,7 +20,8 @@ INCS_DIR=includes
 SRCS=main.c \
     parsing/ip.c \
 	parsing/opts.c \
-	utils/wrapper.c
+	utils/wrapper.c \
+	tcp.c
 
 OBJS=$(addprefix $(OBJS_DIR)/, $(SRCS:.c=.o))
 
@@ -36,6 +37,7 @@ all: $(NAME)
 
 $(NAME): $(OBJS) $(LIBPCAP) $(LIBFT)
 	$(CC) -o $(NAME) $(OBJS) -L $(LIBPCAP_DIR) -lpcap -L $(LIBFT_DIR) -lft
+	sudo setcap cap_net_raw,cap_net_admin=eip $(NAME)
 
 $(OBJS_DIR)/%.o: $(SRCS_DIR)/%.c
 	@mkdir -p $(dir $@)
@@ -56,6 +58,10 @@ clean:
 fclean: clean
 	$(RM) $(NAME)
 
+vm-up:
+	cd tests/e2e && \
+	vagrant up
+
 re: fclean all
 
-.PHONY: all clean fclean re
+.PHONY: all clean fclean re vm-up
