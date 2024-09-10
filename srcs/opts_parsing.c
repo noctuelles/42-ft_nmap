@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/06 22:50:21 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/07 14:41:02 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/10 10:50:04 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -51,7 +51,7 @@ parse_scan_type(const char *input_scan_type, uint64_t *scan_type_mask) {
     size_t i             = 0;
 
     if (*input_scan_type == '\0') {
-        error(0, 0, "you should provide at least one scan type");
+        error(0, 0, "you should provide at least one scan type.");
         return (1);
     }
     while (*input_scan_type != '\0') {
@@ -66,18 +66,18 @@ parse_scan_type(const char *input_scan_type, uint64_t *scan_type_mask) {
             i++;
         }
         if (i == NSIZE(g_available_scan_types)) {
-            error(0, 0, "invalid scan type: %s", input_scan_type);
+            error(0, 0, "invalid scan type: '%s'.", input_scan_type);
             return (1);
         }
         input_scan_type += scan_type_len;
         if (*input_scan_type == ',') {
             input_scan_type++;
             if (*input_scan_type == '\0') {
-                error(0, 0, "trailing comma");
+                error(0, 0, "trailing comma.");
                 return (1);
             }
         } else if (*input_scan_type != '\0') {
-            error(0, 0, "each scan type should be separated by a comma");
+            error(0, 0, "each scan type should be separated by a comma.");
             return (1);
         }
     }
@@ -106,7 +106,7 @@ parse_port_range(const char *input_port_range, uint16_t port_range[2]) {
         goto invalid_port_range;
     }
     val = strtol(token, &endptr, 10);
-    if (errno == EINVAL || errno == ERANGE || *endptr != '\0' || val < MIN_PORT || val > MAX_PORT) {
+    if (errno == EINVAL || errno == ERANGE || *endptr != '\0' || val < MIN_PORT || val > UINT16_MAX) {
         goto invalid_port_range;
     }
     port_range[0] = val;
@@ -114,19 +114,25 @@ parse_port_range(const char *input_port_range, uint16_t port_range[2]) {
         goto invalid_port_range;
     }
     val = strtol(token, &endptr, 10);
-    if (errno == EINVAL || errno == ERANGE || *endptr != '\0' || val < MIN_PORT || val > MAX_PORT) {
+    if (errno == EINVAL || errno == ERANGE || *endptr != '\0' || val < MIN_PORT || val > UINT16_MAX) {
         goto invalid_port_range;
     }
     port_range[1] = val;
     if (port_range[0] > port_range[1]) {
         goto invalid_port_range;
     }
+    if (port_range[1] - port_range[0] > MAX_PORT_RANGE) {
+        goto max_port_exceeded;
+    }
     goto ok;
 invalid_port_range:
     error(0, 0,
           "invalid port range -- should be between %u and %u (inclusive) and "
-          "in the form <port>-<port>",
-          MIN_PORT, MAX_PORT);
+          "in the form <port1>-<port2> where port1 > port2.",
+          1, UINT16_MAX);
+    return (1);
+max_port_exceeded:
+    error(0, 0, "invalid port range -- the numbers of ports scanned cannot exceed %u.", MAX_PORT_RANGE);
     return (1);
 ok:
     return (0);
@@ -144,8 +150,8 @@ parse_opts(int argc, char **argv, t_opts *opts) {
 
     /* Options default value */
     opts->scan_type       = 64U; /* 64 is 0b111111, so all the scans are enabled by default. */
-    opts->port_range[0]   = MIN_PORT;
-    opts->port_range[1]   = MAX_PORT;
+    opts->port_range[0]   = DFLT_PORT_RANGE_START;
+    opts->port_range[1]   = DFLT_PORT_RANGE_END;
     opts->threads         = 0;
     opts->host            = NULL;
     opts->hosts_file_path = NULL;
