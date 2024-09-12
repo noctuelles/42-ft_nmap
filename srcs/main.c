@@ -6,15 +6,18 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/10 14:30:42 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/12 13:41:42 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <error.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
+#include "checksum.h"
 #include "libft.h"
 #include "opts_parsing.h"
 #include "parsing.h"
@@ -74,7 +77,6 @@ main(int argc, char **argv) {
     }
 
     pcap_if_t *devs = NULL;
-    pcap_t    *handle;
 
     t_resv_host       *dest = hosts->content;
     struct sockaddr_in local_sockaddr;
@@ -104,6 +106,44 @@ main(int argc, char **argv) {
     printf("Local IP address: %s\n", inet_ntoa(local_sockaddr.sin_addr));
     printf("Destination IP address: %s\n", inet_ntoa(dest->sockaddr.sin_addr));
 
-    pcap_close(handle);
+    int sockfd = 0;
+
+    if ((sockfd = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
+        return (1);
+    }
+    srand(time(NULL));
+
+    struct ip     ip  = {0};
+    struct tcphdr tcp = {0};
+    uint8_t       packet[IP_MAXPACKET];
+
+    ip.ip_src.s_addr = local_sockaddr.sin_addr.s_addr;
+    ip.ip_dst.s_addr = dest->sockaddr.sin_addr.s_addr;
+    ip.ip_off        = 0;
+    ip.ip_sum        = 0; /* Filled by the kernel when equals to 0. */
+    ip.ip_id         = 0; /* Filled when equals to 0 by the kernel. */
+    ip.ip_hl         = 5; /* Header length */
+    ip.ip_tos        = 0;
+    ip.ip_ttl        = 64;
+    ip.ip_p          = IPPROTO_TCP;
+    ip.ip_v          = IPVERSION;
+
+    const uint16_t ephemeral_port_start = 49152;
+    const uint16_t ephemeral_port_end   = 65535;
+
+    tcp.source = htons(rand() % (ephemeral_port_end - ephemeral_port_start + 1) + ephemeral_port_start);
+    tcp.dest   = htons(80);
+    tcp.window = htons(1024);
+    tcp.seq    = htonl(rand());
+    tcp.doff   = 5;
+    tcp.syn    = 1;
+
+    tcp.check = compute_tcphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, tcp, NULL, 0);
+    memcpy(packet, &ip, sizeof(ip));
+    memcpy(packet + sizeof(ip), &tcp, sizeof(tcp));
+    if (Sendto(sockfd, packet, sizeof(ip) + sizeof(tcp), 0, (struct sockaddr *)&dest->sockaddr, sizeof(dest->sockaddr)) == -1) {
+        return (1);
+    }
+
     return (0);
 }

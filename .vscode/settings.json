@@ -3,7 +3,8 @@
     "*.c": "c",
     "ip.h": "c",
     "errno.h": "c",
-    "netdb.h": "c"
+    "netdb.h": "c",
+    "tcp.h": "c"
   },
   "ansible.python.interpreterPath": "/home/plouvel/Documents/42/42-ft_nmap/.venv/bin/python"
 }

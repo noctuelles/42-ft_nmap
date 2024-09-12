@@ -6,7 +6,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/ft_nmap",
-      "args": ["--host=google.com"],
+      "args": ["--host=192.168.50.10"],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
       "environment": [],
