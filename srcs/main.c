@@ -6,11 +6,12 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/12 13:41:42 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/12 14:59:56 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <error.h>
+#include <netinet/if_ether.h>
 #include <netinet/tcp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,6 +42,76 @@ print_usage(void) {
     printf(
         "  --file, -f\t\tThe file containing the hosts to scan. Note that you cannot set the -f and -h options : it's one or another, not "
         "both.\n");
+}
+
+/**
+ * @brief This handler is called by pcap_loop when a packet is received.
+ *
+ * @param user User provided struct.
+ * @param pkthdr The packet header.
+ * @param packet The packet data.
+ */
+void
+packet_handler(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
+    (void)user;
+    (void)pkthdr;
+
+    struct ethhdr *ethhdr = NULL;
+    struct ip     *ip     = NULL;
+    struct tcphdr *tcphdr = NULL;
+
+    ethhdr = (struct ethhdr *)packet;
+
+    /* Do we have to check if the packet is big enough to accomodate everything ? */
+
+    puts("** RECEIVED PACKET **\n");
+
+    printf("Ethernet type: %x\n", ntohs(ethhdr->h_proto));
+    printf("Source MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", ethhdr->h_source[0], ethhdr->h_source[1], ethhdr->h_source[2],
+           ethhdr->h_source[3], ethhdr->h_source[4], ethhdr->h_source[5]);
+    printf("Destination MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n\n", ethhdr->h_dest[0], ethhdr->h_dest[1], ethhdr->h_dest[2],
+           ethhdr->h_dest[3], ethhdr->h_dest[4], ethhdr->h_dest[5]);
+
+    ip = (struct ip *)(packet + sizeof(struct ethhdr));
+
+    size_t ip_hdrlen = ip->ip_hl << 2;
+
+    if (ip_hdrlen < sizeof(struct ip)) {
+        fprintf(stderr, "Invalid IP header length: %lu\n", ip_hdrlen);
+        return;
+    }
+
+    printf("IP version: %u\n", ip->ip_v);
+    printf("IP header length: %lu\n", ip_hdrlen);
+    printf("IP total length: %u\n", ntohs(ip->ip_len));
+    printf("IP protocol: %u\n", ip->ip_p);
+    printf("Source IP address: %s\n", inet_ntoa(ip->ip_src));
+    printf("Destination IP address: %s\n\n", inet_ntoa(ip->ip_dst));
+
+    tcphdr = (struct tcphdr *)(packet + sizeof(struct ethhdr) + ip_hdrlen);
+
+    printf("Source port: %u\n", ntohs(tcphdr->source));
+    printf("Destination port: %u\n", ntohs(tcphdr->dest));
+    printf("TCP Flags: ");
+    if (tcphdr->syn) {
+        printf("SYN ");
+    }
+    if (tcphdr->ack) {
+        printf("ACK ");
+    }
+    if (tcphdr->fin) {
+        printf("FIN ");
+    }
+    if (tcphdr->rst) {
+        printf("RST ");
+    }
+    if (tcphdr->psh) {
+        printf("PSH ");
+    }
+    if (tcphdr->urg) {
+        printf("URG ");
+    }
+    printf("\n");
 }
 
 #define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
@@ -79,7 +150,7 @@ main(int argc, char **argv) {
     pcap_if_t *devs = NULL;
 
     t_resv_host       *dest = hosts->content;
-    struct sockaddr_in local_sockaddr;
+    struct sockaddr_in local_sockaddr, local_netmask;
     char              *local_device_name;
 
     if (Pcap_findalldevs(&devs) == -1) {
@@ -92,6 +163,7 @@ main(int argc, char **argv) {
     for (struct pcap_addr *addr = devs->addresses; addr != NULL; addr = addr->next) {
         if (addr->addr->sa_family == AF_INET) {
             memcpy(&local_sockaddr, addr->addr, sizeof(local_sockaddr));
+            memcpy(&local_netmask, addr->netmask, sizeof(local_netmask));
             local_device_name = strdup(devs->name);
             break;
         }
@@ -102,9 +174,32 @@ main(int argc, char **argv) {
     }
     pcap_freealldevs(devs);
 
+    pcap_t            *handle = NULL;
+    char               filter[256];
+    struct bpf_program filter_program;
+
+    char srchost[INET_ADDRSTRLEN];
+    char dsthost[INET_ADDRSTRLEN];
+
+    inet_ntop(AF_INET, &local_sockaddr.sin_addr, srchost, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &dest->sockaddr.sin_addr, dsthost, INET_ADDRSTRLEN);
+
+    snprintf(filter, sizeof(filter), FILTER, srchost, dsthost);
+
+    if ((handle = Pcap_open_live(local_device_name, BUFSIZ, 1, 1000)) == NULL) {
+        return (1);
+    }
+    if (Pcap_compile(handle, &filter_program, filter, 0, local_netmask.sin_addr.s_addr) == -1) {
+        return (1);
+    }
+    if (Pcap_setfilter(handle, &filter_program) == -1) {
+        return (1);
+    }
+
     printf("Using interface device %s\n", local_device_name);
     printf("Local IP address: %s\n", inet_ntoa(local_sockaddr.sin_addr));
     printf("Destination IP address: %s\n", inet_ntoa(dest->sockaddr.sin_addr));
+    printf("Filter: %s\n\n", filter);
 
     int sockfd = 0;
 
@@ -141,7 +236,12 @@ main(int argc, char **argv) {
     tcp.check = compute_tcphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, tcp, NULL, 0);
     memcpy(packet, &ip, sizeof(ip));
     memcpy(packet + sizeof(ip), &tcp, sizeof(tcp));
+
     if (Sendto(sockfd, packet, sizeof(ip) + sizeof(tcp), 0, (struct sockaddr *)&dest->sockaddr, sizeof(dest->sockaddr)) == -1) {
+        return (1);
+    }
+
+    if (pcap_loop(handle, 0, packet_handler, NULL) == -1) {
         return (1);
     }
 
