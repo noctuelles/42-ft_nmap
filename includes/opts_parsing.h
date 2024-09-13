@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/06 22:50:51 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/10 10:43:58 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/13 14:33:44 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -32,6 +32,14 @@ typedef struct s_opts {
     uint64_t    scan_type;       /* The type of scan to perform. The first 6 bit are used to
                                    set the SYN, NULL, FIN, XMAS, ACK, UDP respectively. */
 } t_opts;
+
+typedef enum e_scan_type {
+    SYN = 0,
+    NUL,
+    XMAS,
+    ACK,
+    TCP,
+} t_scan_type;
 
 /**
  * @brief Parse the command line options and set the corresponding fields in the opts structure.
