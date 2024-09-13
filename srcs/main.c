@@ -6,13 +6,14 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/13 12:13:36 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/13 13:58:59 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <error.h>
 #include <netinet/if_ether.h>
 #include <netinet/tcp.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -115,6 +116,41 @@ packet_handler(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *pac
     printf("\n");
 }
 
+typedef struct s_thread_ctx {
+    t_scan_queue             *scan_queue;
+    const struct sockaddr_in *local;
+    pthread_t                 id;
+} t_thread_ctx;
+
+static pthread_mutex_t   print_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_barrier_t barrier;
+
+void *
+thread_routine(void *data) {
+    t_thread_ctx *ctx   = data;
+    size_t        nscan = 0;
+
+    pthread_mutex_lock(&print_lock);
+    printf("Thread [%lu]: Started\n", ctx->id);
+    pthread_mutex_unlock(&print_lock);
+
+    const t_scan_queue_data *elem = NULL;
+
+    pthread_barrier_wait(&barrier);
+
+    while ((elem = scan_queue_dequeue(ctx->scan_queue)) != NULL) {
+        // pthread_mutex_lock(&print_lock);
+        // printf("Thread [%#lx]: Scanning %s:%u\n", ctx->id, inet_ntoa(elem->resv_host->sockaddr.sin_addr), elem->port);
+        nscan += 1;
+        // pthread_mutex_unlock(&print_lock);
+    }
+
+    pthread_mutex_lock(&print_lock);
+    printf("Thread [%#lx]: Scanned %lu\n", ctx->id, nscan);
+    pthread_mutex_unlock(&print_lock);
+    return (NULL);
+}
+
 #define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
 
 /* https://www.tcpdump.org/pcap.html */
@@ -149,15 +185,28 @@ main(int argc, char **argv) {
     }
 
     t_scan_queue *scan_queue = NULL;
-
-    if ((scan_queue = new_scan_queue(ft_lstsize(hosts), (g_opts.port_range[1] - g_opts.port_range[0]))) == NULL) {
+    if ((scan_queue = new_scan_queue(ft_lstsize(hosts), (g_opts.port_range[1] - g_opts.port_range[0]) + 1)) == NULL) {
         return (1);
     }
-
     for (t_list *elem = hosts; elem != NULL; elem = elem->next) {
         for (uint16_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
             scan_queue_enqueue(scan_queue, elem->content, port);
         }
+    }
+
+    t_thread_ctx threads[MAX_THREAD_COUNT];
+
+    if (pthread_barrier_init(&barrier, NULL, g_opts.threads) != 0) {
+        return (1);
+    }
+    for (size_t n = 0; n < g_opts.threads; n++) {
+        threads[n].scan_queue = scan_queue;
+        if (pthread_create(&threads[n].id, NULL, thread_routine, &threads[n]) != 0) {
+            return (1);
+        }
+    }
+    for (size_t n = 0; n < g_opts.threads; n++) {
+        pthread_join(threads[n].id, NULL);
     }
 
     // pcap_if_t *devs = NULL;

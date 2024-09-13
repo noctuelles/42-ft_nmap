@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/10 13:36:52 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/13 13:00:14 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -151,7 +151,7 @@ parse_opts(int argc, char **argv, t_opts *opts) {
     opts->scan_type       = 64U; /* 64 is 0b111111, so all the scans are enabled by default. */
     opts->port_range[0]   = DFLT_PORT_RANGE_START;
     opts->port_range[1]   = DFLT_PORT_RANGE_END;
-    opts->threads         = 0;
+    opts->threads         = 1;
     opts->host            = NULL;
     opts->hosts_file_path = NULL;
     opts->help            = 0;

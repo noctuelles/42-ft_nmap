@@ -6,9 +6,11 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/13 11:29:26 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/13 12:02:26 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/13 13:12:17 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+
+#include "queue.h"
 
 #include <pthread.h>
 #include <stddef.h>
@@ -16,11 +18,6 @@
 
 #include "parsing.h"
 #include "wrapper.h"
-
-typedef struct s_scan_queue_data {
-    const t_resv_host *resv_host;
-    uint16_t           port;
-} t_scan_queue_data;
 
 typedef struct s_scan_queue {
     t_scan_queue_data *data;
