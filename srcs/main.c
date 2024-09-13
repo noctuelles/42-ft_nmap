@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/12 14:59:56 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/13 12:13:36 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,6 +23,7 @@
 #include "opts_parsing.h"
 #include "parsing.h"
 #include "pcap.h"
+#include "queue.h"
 #include "wrapper.h"
 
 extern const char *program_invocation_short_name;
@@ -56,21 +57,21 @@ packet_handler(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *pac
     (void)user;
     (void)pkthdr;
 
-    struct ethhdr *ethhdr = NULL;
+    // struct ethhdr *ethhdr = NULL;
     struct ip     *ip     = NULL;
     struct tcphdr *tcphdr = NULL;
 
-    ethhdr = (struct ethhdr *)packet;
+    // ethhdr = (struct ethhdr *)packet;
 
     /* Do we have to check if the packet is big enough to accomodate everything ? */
 
-    puts("** RECEIVED PACKET **\n");
+    // puts("** RECEIVED PACKET **\n");
 
-    printf("Ethernet type: %x\n", ntohs(ethhdr->h_proto));
-    printf("Source MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", ethhdr->h_source[0], ethhdr->h_source[1], ethhdr->h_source[2],
-           ethhdr->h_source[3], ethhdr->h_source[4], ethhdr->h_source[5]);
-    printf("Destination MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n\n", ethhdr->h_dest[0], ethhdr->h_dest[1], ethhdr->h_dest[2],
-           ethhdr->h_dest[3], ethhdr->h_dest[4], ethhdr->h_dest[5]);
+    // printf("Ethernet type: %x\n", ntohs(ethhdr->h_proto));
+    // printf("Source MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", ethhdr->h_source[0], ethhdr->h_source[1], ethhdr->h_source[2],
+    //        ethhdr->h_source[3], ethhdr->h_source[4], ethhdr->h_source[5]);
+    // printf("Destination MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n\n", ethhdr->h_dest[0], ethhdr->h_dest[1], ethhdr->h_dest[2],
+    //        ethhdr->h_dest[3], ethhdr->h_dest[4], ethhdr->h_dest[5]);
 
     ip = (struct ip *)(packet + sizeof(struct ethhdr));
 
@@ -81,36 +82,36 @@ packet_handler(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *pac
         return;
     }
 
-    printf("IP version: %u\n", ip->ip_v);
-    printf("IP header length: %lu\n", ip_hdrlen);
-    printf("IP total length: %u\n", ntohs(ip->ip_len));
-    printf("IP protocol: %u\n", ip->ip_p);
-    printf("Source IP address: %s\n", inet_ntoa(ip->ip_src));
-    printf("Destination IP address: %s\n\n", inet_ntoa(ip->ip_dst));
+    // printf("IP version: %u\n", ip->ip_v);
+    // printf("IP header length: %lu\n", ip_hdrlen);
+    // printf("IP total length: %u\n", ntohs(ip->ip_len));
+    // printf("IP protocol: %u\n", ip->ip_p);
+    // printf("Source IP address: %s\n", inet_ntoa(ip->ip_src));
+    // printf("Destination IP address: %s\n\n", inet_ntoa(ip->ip_dst));
 
     tcphdr = (struct tcphdr *)(packet + sizeof(struct ethhdr) + ip_hdrlen);
 
     printf("Source port: %u\n", ntohs(tcphdr->source));
-    printf("Destination port: %u\n", ntohs(tcphdr->dest));
-    printf("TCP Flags: ");
-    if (tcphdr->syn) {
-        printf("SYN ");
-    }
-    if (tcphdr->ack) {
-        printf("ACK ");
-    }
-    if (tcphdr->fin) {
-        printf("FIN ");
-    }
-    if (tcphdr->rst) {
-        printf("RST ");
-    }
-    if (tcphdr->psh) {
-        printf("PSH ");
-    }
-    if (tcphdr->urg) {
-        printf("URG ");
-    }
+    // printf("Destination port: %u\n", ntohs(tcphdr->dest));
+    // printf("TCP Flags: ");
+    // if (tcphdr->syn) {
+    //     printf("SYN ");
+    // }
+    // if (tcphdr->ack) {
+    //     printf("ACK ");
+    // }
+    // if (tcphdr->fin) {
+    //     printf("FIN ");
+    // }
+    // if (tcphdr->rst) {
+    //     printf("RST ");
+    // }
+    // if (tcphdr->psh) {
+    //     printf("PSH ");
+    // }
+    // if (tcphdr->urg) {
+    //     printf("URG ");
+    // }
     printf("\n");
 }
 
@@ -147,103 +148,121 @@ main(int argc, char **argv) {
         }
     }
 
-    pcap_if_t *devs = NULL;
+    t_scan_queue *scan_queue = NULL;
 
-    t_resv_host       *dest = hosts->content;
-    struct sockaddr_in local_sockaddr, local_netmask;
-    char              *local_device_name;
-
-    if (Pcap_findalldevs(&devs) == -1) {
+    if ((scan_queue = new_scan_queue(ft_lstsize(hosts), (g_opts.port_range[1] - g_opts.port_range[0]))) == NULL) {
         return (1);
     }
-    if (devs == NULL) {
-        error(0, 0, "no network interface found");
-        return (1);
-    }
-    for (struct pcap_addr *addr = devs->addresses; addr != NULL; addr = addr->next) {
-        if (addr->addr->sa_family == AF_INET) {
-            memcpy(&local_sockaddr, addr->addr, sizeof(local_sockaddr));
-            memcpy(&local_netmask, addr->netmask, sizeof(local_netmask));
-            local_device_name = strdup(devs->name);
-            break;
+
+    for (t_list *elem = hosts; elem != NULL; elem = elem->next) {
+        for (uint16_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
+            scan_queue_enqueue(scan_queue, elem->content, port);
         }
     }
-    if (local_device_name == NULL) {
-        error(0, 0, "no network interface found");
-        return (1);
-    }
-    pcap_freealldevs(devs);
 
-    pcap_t            *handle = NULL;
-    char               filter[256];
-    struct bpf_program filter_program;
+    // pcap_if_t *devs = NULL;
 
-    char srchost[INET_ADDRSTRLEN];
-    char dsthost[INET_ADDRSTRLEN];
+    // t_resv_host       *dest = hosts->content;
+    // struct sockaddr_in local_sockaddr, local_netmask;
+    // char              *local_device_name;
 
-    inet_ntop(AF_INET, &local_sockaddr.sin_addr, srchost, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &dest->sockaddr.sin_addr, dsthost, INET_ADDRSTRLEN);
+    // if (Pcap_findalldevs(&devs) == -1) {
+    //     return (1);
+    // }
+    // if (devs == NULL) {
+    //     error(0, 0, "no network interface found");
+    //     return (1);
+    // }
+    // for (struct pcap_addr *addr = devs->addresses; addr != NULL; addr = addr->next) {
+    //     if (addr->addr->sa_family == AF_INET) {
+    //         memcpy(&local_sockaddr, addr->addr, sizeof(local_sockaddr));
+    //         memcpy(&local_netmask, addr->netmask, sizeof(local_netmask));
+    //         local_device_name = strdup(devs->name);
+    //         break;
+    //     }
+    // }
+    // if (local_device_name == NULL) {
+    //     error(0, 0, "no network interface found");
+    //     return (1);
+    // }
+    // pcap_freealldevs(devs);
 
-    snprintf(filter, sizeof(filter), FILTER, srchost, dsthost);
+    // pcap_t            *handle = NULL;
+    // char               filter[256];
+    // struct bpf_program filter_program;
 
-    if ((handle = Pcap_open_live(local_device_name, BUFSIZ, 1, 1000)) == NULL) {
-        return (1);
-    }
-    if (Pcap_compile(handle, &filter_program, filter, 0, local_netmask.sin_addr.s_addr) == -1) {
-        return (1);
-    }
-    if (Pcap_setfilter(handle, &filter_program) == -1) {
-        return (1);
-    }
+    // char srchost[INET_ADDRSTRLEN];
+    // char dsthost[INET_ADDRSTRLEN];
 
-    printf("Using interface device %s\n", local_device_name);
-    printf("Local IP address: %s\n", inet_ntoa(local_sockaddr.sin_addr));
-    printf("Destination IP address: %s\n", inet_ntoa(dest->sockaddr.sin_addr));
-    printf("Filter: %s\n\n", filter);
+    // inet_ntop(AF_INET, &local_sockaddr.sin_addr, srchost, INET_ADDRSTRLEN);
+    // inet_ntop(AF_INET, &dest->sockaddr.sin_addr, dsthost, INET_ADDRSTRLEN);
 
-    int sockfd = 0;
+    // snprintf(filter, sizeof(filter), FILTER, srchost, dsthost);
 
-    if ((sockfd = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
-        return (1);
-    }
-    srand(time(NULL));
+    // if ((handle = Pcap_open_live(local_device_name, BUFSIZ, 1, 1000)) == NULL) {
+    //     return (1);
+    // }
+    // if (Pcap_compile(handle, &filter_program, filter, 0, local_netmask.sin_addr.s_addr) == -1) {
+    //     return (1);
+    // }
+    // if (Pcap_setfilter(handle, &filter_program) == -1) {
+    //     return (1);
+    // }
 
-    struct ip     ip  = {0};
-    struct tcphdr tcp = {0};
-    uint8_t       packet[IP_MAXPACKET];
+    // printf("Using interface device %s\n", local_device_name);
+    // printf("Local IP address: %s\n", inet_ntoa(local_sockaddr.sin_addr));
+    // printf("Destination IP address: %s\n", inet_ntoa(dest->sockaddr.sin_addr));
+    // printf("Filter: %s\n\n", filter);
 
-    ip.ip_src.s_addr = local_sockaddr.sin_addr.s_addr;
-    ip.ip_dst.s_addr = dest->sockaddr.sin_addr.s_addr;
-    ip.ip_off        = 0;
-    ip.ip_sum        = 0; /* Filled by the kernel when equals to 0. */
-    ip.ip_id         = 0; /* Filled when equals to 0 by the kernel. */
-    ip.ip_hl         = 5; /* Header length */
-    ip.ip_tos        = 0;
-    ip.ip_ttl        = 64;
-    ip.ip_p          = IPPROTO_TCP;
-    ip.ip_v          = IPVERSION;
+    // int sockfd = 0;
 
-    const uint16_t ephemeral_port_start = 49152;
-    const uint16_t ephemeral_port_end   = 65535;
+    // if ((sockfd = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
+    //     return (1);
+    // }
+    // srand(time(NULL));
 
-    tcp.source = htons(rand() % (ephemeral_port_end - ephemeral_port_start + 1) + ephemeral_port_start);
-    tcp.dest   = htons(80);
-    tcp.window = htons(1024);
-    tcp.seq    = htonl(rand());
-    tcp.doff   = 5;
-    tcp.syn    = 1;
+    // uint16_t port = g_opts.port_range[0];
 
-    tcp.check = compute_tcphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, tcp, NULL, 0);
-    memcpy(packet, &ip, sizeof(ip));
-    memcpy(packet + sizeof(ip), &tcp, sizeof(tcp));
+    // struct ip     ip  = {0};
+    // struct tcphdr tcp = {0};
+    // uint8_t       packet[IP_MAXPACKET];
 
-    if (Sendto(sockfd, packet, sizeof(ip) + sizeof(tcp), 0, (struct sockaddr *)&dest->sockaddr, sizeof(dest->sockaddr)) == -1) {
-        return (1);
-    }
+    // ip.ip_src.s_addr = local_sockaddr.sin_addr.s_addr;
+    // ip.ip_dst.s_addr = dest->sockaddr.sin_addr.s_addr;
+    // ip.ip_off        = 0;
+    // ip.ip_sum        = 0; /* Filled by the kernel when equals to 0. */
+    // ip.ip_id         = 0; /* Filled when equals to 0 by the kernel. */
+    // ip.ip_hl         = 5; /* Header length */
+    // ip.ip_tos        = 0;
+    // ip.ip_ttl        = 64;
+    // ip.ip_p          = IPPROTO_TCP;
+    // ip.ip_v          = IPVERSION;
 
-    if (pcap_loop(handle, 0, packet_handler, NULL) == -1) {
-        return (1);
-    }
+    // const uint16_t ephemeral_port_start = 49152;
+    // const uint16_t ephemeral_port_end   = 65535;
+
+    // while (port <= g_opts.port_range[1]) {
+    //     tcp.source = htons(rand() % (ephemeral_port_end - ephemeral_port_start + 1) + ephemeral_port_start);
+    //     tcp.dest   = htons(port);
+    //     tcp.window = htons(1024);
+    //     tcp.seq    = htonl(rand());
+    //     tcp.doff   = 5;
+    //     tcp.syn    = 1;
+
+    //     tcp.check = compute_tcphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, tcp, NULL, 0);
+    //     memcpy(packet, &ip, sizeof(ip));
+    //     memcpy(packet + sizeof(ip), &tcp, sizeof(tcp));
+
+    //     if (Sendto(sockfd, packet, sizeof(ip) + sizeof(tcp), 0, (struct sockaddr *)&dest->sockaddr, sizeof(dest->sockaddr)) == -1) {
+    //         return (1);
+    //     }
+
+    //     port++;
+    // }
+
+    // if (pcap_loop(handle, 0, packet_handler, NULL) == -1) {
+    //     return (1);
+    // }
 
     return (0);
 }
