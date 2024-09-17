@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/17 16:47:21 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/17 18:48:10 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -29,6 +29,7 @@
 #include "parsing.h"
 #include "pcap.h"
 #include "queue.h"
+#include "scan_engine.h"
 #include "wrapper.h"
 
 extern const char *program_invocation_short_name;
@@ -49,15 +50,6 @@ print_usage(void) {
         "  --file, -f\t\tThe file containing the hosts to scan. Note that you cannot set the -f and -h options : it's one or another, not "
         "both.\n");
 }
-
-typedef struct s_thread_ctx {
-    t_scan_queue      *scan_queue;
-    char               key[16];
-    struct sockaddr_in local;
-    pthread_t          id;
-} t_thread_ctx;
-
-static pthread_barrier_t barrier;
 
 #define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
 
@@ -137,29 +129,56 @@ main(int argc, char **argv) {
     get_entropy(key);
 
     t_scan_queue *scan_queue = NULL;
+    size_t        n_probes   = ft_lstsize(hosts) * (g_opts.port_range[1] - g_opts.port_range[0]) + 1;
+
     if ((scan_queue = new_scan_queue(ft_lstsize(hosts), (g_opts.port_range[1] - g_opts.port_range[0]) + 1)) == NULL) {
         return (1);
     }
     for (t_list *elem = hosts; elem != NULL; elem = elem->next) {
         for (uint16_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
-            scan_queue_enqueue(scan_queue, elem->content, port, UDP_SCAN);
+            scan_queue_enqueue(scan_queue, elem->content, port, SYN_SCAN);
         }
     }
 
-    t_thread_ctx threads[MAX_THREAD_COUNT];
-    if (pthread_barrier_init(&barrier, NULL, g_opts.threads) != 0) {
+    t_send_thread_ctx send_threads[2];
+    t_recv_thread_ctx recv_thread;
+    char              filter[512];
+    char              ip_dst[INET_ADDRSTRLEN];
+    char              ip_src[INET_ADDRSTRLEN];
+    t_resv_host      *host = hosts->content;
+    pthread_barrier_t barrier;  // this barrier is used to synchronise the sender and recv threads.
+
+    strcpy(ip_dst, inet_ntoa(host->sockaddr.sin_addr));
+    strcpy(ip_src, inet_ntoa(local_sockaddr.sin_addr));
+
+    snprintf(filter, sizeof(filter), FILTER, ip_src, ip_dst);
+
+    printf("Filter is : %s\n", filter);
+
+    if (pthread_barrier_init(&barrier, NULL, 3) != 0) {
         return (1);
     }
-    for (size_t n = 0; n < g_opts.threads; n++) {
-        threads[n].scan_queue = scan_queue;
-        threads[n].local      = local_sockaddr;
-        strncpy(threads[n].key, key, 16);
-        if (pthread_create(&threads[n].id, NULL, thread_routine, &threads[n]) != 0) {
+
+    for (size_t n = 0; n < 2; n++) {
+        send_threads[n].scan_queue = scan_queue;
+        send_threads[n].local      = local_sockaddr;
+        send_threads[n].key        = key;
+        send_threads[n].barrier    = &barrier;
+        if (pthread_create(&send_threads[n].id, NULL, sender_thread, &send_threads[n]) != 0) {
             return (1);
         }
+        pthread_detach(send_threads[n].id);
     }
-    for (size_t n = 0; n < g_opts.threads; n++) {
-        pthread_join(threads[n].id, NULL);
+
+    recv_thread.device    = local_device_name;
+    recv_thread.filter    = filter;
+    recv_thread.n_probes  = n_probes;
+    recv_thread.scan_type = SYN_SCAN;
+    recv_thread.barrier   = &barrier;
+    recv_thread.key       = key;
+    if (pthread_create(&recv_thread.id, NULL, receiver_thread, &recv_thread) != 0) {
+        return (1);
     }
+    pthread_join(recv_thread.id, NULL);
     return (0);
 }

@@ -6,12 +6,13 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 15:21:58 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/17 15:50:49 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/17 19:02:33 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <netinet/in.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define _le64toh(x) ((uint64_t)(x))
 
@@ -97,7 +98,7 @@ siphash24(const void *src, unsigned long src_sz, const char key[16]) {
 }
 
 uint32_t
-create_tcp_token(in_addr_t dest_ip, in_port_t dest_port, in_addr_t local_ip, in_port_t local_port, const char key[16]) {
+get_syn_cookie(in_addr_t dest_ip, in_port_t dest_port, in_addr_t local_ip, in_port_t local_port, const char key[16]) {
     uint8_t data[12];
 
     *((uint32_t *)&data[0])  = local_ip;
