@@ -6,7 +6,7 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/13 13:30:14 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/17 15:47:43 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -22,6 +22,7 @@ SRCS=main.c \
 	parsing/opts.c \
 	utils/wrapper.c \
 	queue.c \
+	hash.c \
 	checksum.c
 
 OBJS=$(addprefix $(OBJS_DIR)/, $(SRCS:.c=.o))

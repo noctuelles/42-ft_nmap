@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/13 11:29:26 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/13 13:12:17 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/17 16:08:58 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -65,7 +65,7 @@ free_scan_queue(t_scan_queue *queue) {
 }
 
 void
-scan_queue_enqueue(t_scan_queue *queue, const t_resv_host *resv_host, uint16_t port) {
+scan_queue_enqueue(t_scan_queue *queue, const t_resv_host *resv_host, uint16_t port, t_scan_type scan_type) {
     pthread_mutex_lock(&queue->lock);
 
     if (queue->size == queue->capacity) {
@@ -76,6 +76,7 @@ scan_queue_enqueue(t_scan_queue *queue, const t_resv_host *resv_host, uint16_t p
     queue->tail                        = (queue->tail + 1) % queue->capacity;
     queue->data[queue->tail].resv_host = resv_host;
     queue->data[queue->tail].port      = port;
+    queue->data[queue->tail].scan_type = scan_type;
     queue->size++;
 
     pthread_mutex_unlock(&queue->lock);

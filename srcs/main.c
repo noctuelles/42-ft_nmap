@@ -6,13 +6,15 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/13 15:12:13 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/17 16:47:21 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
+#include <assert.h>
 #include <error.h>
 #include <netinet/if_ether.h>
 #include <netinet/tcp.h>
+#include <netinet/udp.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +23,7 @@
 #include <unistd.h>
 
 #include "checksum.h"
+#include "hash.h"
 #include "libft.h"
 #include "opts_parsing.h"
 #include "parsing.h"
@@ -49,68 +52,30 @@ print_usage(void) {
 
 typedef struct s_thread_ctx {
     t_scan_queue      *scan_queue;
+    char               key[16];
     struct sockaddr_in local;
     pthread_t          id;
 } t_thread_ctx;
 
 static pthread_barrier_t barrier;
 
-void *
-thread_routine(void *data) {
-    t_thread_ctx            *thread_ctx = data;
-    const t_scan_queue_data *elem       = NULL;
-    size_t                   nsend      = 0;
-    int                      fd         = 0;
+#define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
 
-    pthread_barrier_wait(&barrier);
+void
+get_entropy(char key[16]) {
+    FILE *fp = NULL;
 
     srand(time(NULL));
-
-    if ((fd = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
-        return (NULL);
+    if ((fp = fopen("/dev/urandom", "r")) != NULL) {
+        (void)fread((void *)key, 16, 1, fp);
+    } else {
+        *((int *)&key[0])  = rand();
+        *((int *)&key[4])  = rand();
+        *((int *)&key[8])  = rand();
+        *((int *)&key[12]) = rand();
     }
-    while ((elem = scan_queue_dequeue(thread_ctx->scan_queue)) != NULL) {
-        struct ip     ip  = {0};
-        struct tcphdr tcp = {0};
-        uint8_t       packet[IP_MAXPACKET];
-
-        ip.ip_src.s_addr = thread_ctx->local.sin_addr.s_addr;
-        ip.ip_dst.s_addr = elem->resv_host->sockaddr.sin_addr.s_addr;
-        ip.ip_off        = 0;
-        ip.ip_sum        = 0; /* Filled by the kernel when equals to 0. */
-        ip.ip_id         = 0; /* Filled when equals to 0 by the kernel. */
-        ip.ip_hl         = 5; /* Header length */
-        ip.ip_tos        = 0;
-        ip.ip_ttl        = 64;
-        ip.ip_p          = IPPROTO_TCP;
-        ip.ip_v          = IPVERSION;
-
-        const uint16_t ephemeral_port_start = 49152;
-        const uint16_t ephemeral_port_end   = 65535;
-
-        tcp.source = htons(rand() % (ephemeral_port_end - ephemeral_port_start + 1) + ephemeral_port_start);
-        tcp.dest   = htons(elem->port);
-        tcp.window = htons(1024);
-        tcp.seq    = htonl(rand());
-        tcp.doff   = 5;
-        tcp.syn    = 1;
-
-        tcp.check = compute_tcphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, tcp, NULL, 0);
-        memcpy(packet, &ip, sizeof(ip));
-        memcpy(packet + sizeof(ip), &tcp, sizeof(tcp));
-
-        if (Sendto(fd, packet, sizeof(ip) + sizeof(tcp), 0, (const struct sockaddr *)&elem->resv_host->sockaddr,
-                   sizeof(struct sockaddr_in)) == -1) {
-            return (NULL);
-        }
-
-        nsend++;
-    }
-    printf("Thread [%#lx]: %lu packet sent.\n", thread_ctx->id, nsend);
-    return (NULL);
+    fclose(fp);
 }
-
-#define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
 
 /* https://www.tcpdump.org/pcap.html */
 int
@@ -168,13 +133,16 @@ main(int argc, char **argv) {
     }
     pcap_freealldevs(devs);
 
+    char key[16];
+    get_entropy(key);
+
     t_scan_queue *scan_queue = NULL;
     if ((scan_queue = new_scan_queue(ft_lstsize(hosts), (g_opts.port_range[1] - g_opts.port_range[0]) + 1)) == NULL) {
         return (1);
     }
     for (t_list *elem = hosts; elem != NULL; elem = elem->next) {
         for (uint16_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
-            scan_queue_enqueue(scan_queue, elem->content, port);
+            scan_queue_enqueue(scan_queue, elem->content, port, UDP_SCAN);
         }
     }
 
@@ -185,6 +153,7 @@ main(int argc, char **argv) {
     for (size_t n = 0; n < g_opts.threads; n++) {
         threads[n].scan_queue = scan_queue;
         threads[n].local      = local_sockaddr;
+        strncpy(threads[n].key, key, 16);
         if (pthread_create(&threads[n].id, NULL, thread_routine, &threads[n]) != 0) {
             return (1);
         }

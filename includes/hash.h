@@ -1,20 +1,21 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   ft_nmap.h                                          :+:      :+:    :+:   */
+/*   hash.h                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/09/07 14:29:13 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/17 16:51:40 by plouvel          ###   ########.fr       */
+/*   Created: 2024/09/17 15:45:53 by plouvel           #+#    #+#             */
+/*   Updated: 2024/09/17 15:51:00 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef FT_NMAP_H
-#define FT_NMAP_H
+#ifndef HASH_H
+#define HASH_H
 
-#include "opts_parsing.h"
+#include <netinet/in.h>
+#include <stdint.h>
 
-extern t_opts g_opts;
+uint32_t create_tcp_token(in_addr_t dest_ip, in_port_t dest_port, in_addr_t local_ip, in_port_t local_port, const char key[16]);
 
 #endif
