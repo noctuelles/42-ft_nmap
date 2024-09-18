@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/07 14:56:17 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/10 13:35:50 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/18 10:54:44 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -56,6 +56,28 @@ Pcap_open_live(const char *device, int snaplen, int promisc, int to_ms) {
         return (NULL);
     }
     return (handle);
+}
+
+pcap_t *
+Pcap_create(const char *device) {
+    char errbuf[PCAP_ERRBUF_SIZE];
+
+    pcap_t *handle = pcap_create(device, errbuf);
+    if (handle == NULL) {
+        error(0, 0, "pcap_create: %s", errbuf);
+        return (NULL);
+    }
+
+    return (handle);
+}
+
+int
+Pcap_activate(pcap_t *p) {
+    if (pcap_activate(p) == -1) {
+        error(0, 0, "pcap_activate: %s", pcap_geterr(p));
+        return (1);
+    }
+    return (0);
 }
 
 int

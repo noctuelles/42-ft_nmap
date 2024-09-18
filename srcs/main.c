@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/17 18:48:10 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/18 11:00:22 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -140,7 +140,7 @@ main(int argc, char **argv) {
         }
     }
 
-    t_send_thread_ctx send_threads[2];
+    t_thread_ctx      send_threads[2];
     t_recv_thread_ctx recv_thread;
     char              filter[512];
     char              ip_dst[INET_ADDRSTRLEN];

@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/17 19:07:45 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/18 11:17:22 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,11 +19,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "checksum.h"
 #include "hash.h"
 #include "queue.h"
 #include "wrapper.h"
+
+#define FILTER_TCP "dst host %s and (icmp or ((tcp) and (src host %s) and (src port %u) and (dst port %u)))"
+#define FILTER_MAX_SIZE (1 << 10)
 
 static int
 send_tcp_packet(int sock_raw_fd, in_addr_t local_ip, in_addr_t dest_ip, in_port_t dest_port, t_scan_type scan_type, const char key[16]) {
@@ -130,6 +134,11 @@ send_udp_packet(int sock_raw_fd, in_addr_t local_ip, in_addr_t dest_ip, in_port_
     return (0);
 }
 
+uint16_t
+get_random_ephemeral_src_port(void) {
+    return (rand() % (65535 - 49152 + 1) + 49152);
+}
+
 static void
 receiver_packet_handler(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
     (void)user;
@@ -196,47 +205,54 @@ receiver_packet_handler(u_char *user, const struct pcap_pkthdr *pkthdr, const u_
     printf("\n");
 }
 
-void *
-receiver_thread(void *data) {
-    t_recv_thread_ctx *ctx      = data;
-    pcap_t            *handle   = NULL;
-    struct bpf_program bpf_prog = {0};
-
-    if ((handle = Pcap_open_live(ctx->device, IP_MAXPACKET, 1, -1)) == NULL) {
-        return (NULL);
-    }
-    if (Pcap_compile(handle, &bpf_prog, ctx->filter, 0, 0) != 0) {
-        return (NULL);
-    }
-    if (Pcap_setfilter(handle, &bpf_prog) != 0) {
-        return (NULL);
-    }
-    pthread_barrier_wait(ctx->barrier);
-    if (pcap_loop(handle, ctx->n_probes, receiver_packet_handler, (u_char *)ctx->key) == PCAP_ERROR) {
-        return (NULL);
-    }
-    return (NULL);
-}
+static int g_thread_ok = 0;
+static int g_thread_ko = -1;
 
 void *
 sender_thread(void *data) {
-    t_send_thread_ctx       *ctx   = data;
-    const t_scan_queue_data *elem  = NULL;
-    size_t                   nsend = 0;
-    int                      fd    = 0;
+    t_thread_ctx            *ctx         = data;
+    const t_scan_queue_data *elem        = NULL;
+    int                      raw_sock_fd = 0;
+    pcap_t                  *pcap_handle = NULL;
+    char                     filter[FILTER_MAX_SIZE], ip_dst[INET_ADDRSTRLEN], ip_src[INET_ADDRSTRLEN];
+    struct bpf_program       bpf_prog;
+    int                     *ret_val = &g_thread_ko;
+    uint16_t                 dst_port, src_port;
 
-    if ((fd = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
-        return (NULL);
+    if ((raw_sock_fd = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
+        return (&g_thread_ko);
     }
-    pthread_barrier_wait(ctx->barrier);
+    if ((pcap_handle = Pcap_create(ctx->device)) == NULL) {
+        goto clean_fd;
+    }
+    (void)pcap_set_snaplen(pcap_handle, IP_MAXPACKET);
+    (void)pcap_set_timeout(pcap_handle, 100);
+    (void)pcap_set_promisc(pcap_handle, 1);
+    if (Pcap_activate(pcap_handle) != 0) {
+        goto clean_pcap;
+    }
+    src_port = get_random_ephemeral_src_port();
     while ((elem = scan_queue_dequeue(ctx->scan_queue)) != NULL) {
-        if (elem->scan_type >= SYN_SCAN && elem->scan_type <= ACK_SCAN) {
-            send_tcp_packet(fd, ctx->local.sin_addr.s_addr, elem->resv_host->sockaddr.sin_addr.s_addr, elem->port, elem->scan_type,
-                            ctx->key);
-        } else if (elem->scan_type == UDP_SCAN) {
-            send_udp_packet(fd, ctx->local.sin_addr.s_addr, elem->resv_host->sockaddr.sin_addr.s_addr, elem->port, ctx->key);
+        dst_port = elem->port;
+
+        inet_ntop(AF_INET, &ctx->local.sin_addr, ip_src, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &elem->resv_host->sockaddr.sin_addr, ip_dst, INET_ADDRSTRLEN);
+
+        (void)snprintf(filter, sizeof(filter), FILTER_TCP, ip_src, ip_dst, dst_port, src_port);
+
+        if (Pcap_compile(pcap_handle, &bpf_prog, filter, 0, 0) != 0) {
+            goto clean_pcap;
         }
-        nsend++;
+        if (Pcap_setfilter(pcap_handle, &bpf_prog) != 0) {
+            goto clean_pcap;
+        }
+        pcap_freecode(&bpf_prog);
+        /* Now we can send the packet and listen ! */
     }
-    return (NULL);
+    ret_val = &g_thread_ok;
+clean_pcap:
+    pcap_close(pcap_handle);
+clean_fd:
+    (void)close(raw_sock_fd);
+    return (ret_val);
 }
