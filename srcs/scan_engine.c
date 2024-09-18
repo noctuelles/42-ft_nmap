@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/18 16:27:19 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/18 16:51:29 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <unistd.h>
 
 #include "checksum.h"
@@ -27,6 +28,7 @@
 #include "queue.h"
 #include "wrapper.h"
 
+#define MAX_RETRIES 3
 #define FILTER_TCP "dst host %s and (icmp or ((tcp) and (src host %s) and (src port %u) and (dst port %u)))"
 #define FILTER_MAX_SIZE (1 << 10)
 
@@ -189,12 +191,33 @@ receiver_packet_handler(u_char *user, const struct pcap_pkthdr *pkthdr, const u_
 
 static int
 loop(const t_loop_ctx *ctx, t_scan_rslt *scan_rslt) {
-    send_tcp_packet(ctx->fd, ctx->src_ip.s_addr, ctx->src_port, ctx->dst_ip.s_addr, ctx->dst_port, SYN);
+    int            pcap_fd = 0;
+    fd_set         rfds;
+    size_t         try_so_far = 0;
+    int            ret_val    = 0;
+    struct timeval timeout;
 
-    if (pcap_dispatch(ctx->pcap_hdl, 1, receiver_packet_handler, (u_char *)scan_rslt) == PCAP_ERROR) {
-        pcap_perror(ctx->pcap_hdl, "pcap_dispatch");
+    if ((pcap_fd = pcap_get_selectable_fd(ctx->pcap_hdl)) == -1) {
         return (-1);
     }
+    FD_ZERO(&rfds);
+    while (try_so_far < MAX_RETRIES) {
+        timeout.tv_sec  = 0;
+        timeout.tv_usec = 500000;
+        FD_SET(pcap_fd, &rfds);
+
+        send_tcp_packet(ctx->fd, ctx->src_ip.s_addr, ctx->src_port, ctx->dst_ip.s_addr, ctx->dst_port, SYN);
+        try_so_far++;
+
+        if ((ret_val = select(pcap_fd + 1, &rfds, NULL, NULL, &timeout))) {
+            if (pcap_dispatch(ctx->pcap_hdl, 1, receiver_packet_handler, (u_char *)scan_rslt) == PCAP_ERROR) {
+                pcap_perror(ctx->pcap_hdl, "pcap_dispatch");
+                return (-1);
+            }
+            break;
+        }
+    }
+
     return (0);
 }
 
