@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/13 11:29:26 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/17 16:08:58 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/18 18:21:22 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -62,6 +62,17 @@ free_scan_queue(t_scan_queue *queue) {
     pthread_mutex_destroy(&queue->lock);
     free(queue->data);
     free(queue);
+}
+
+size_t
+scan_queue_size(t_scan_queue *queue) {
+    size_t size;
+
+    pthread_mutex_lock(&queue->lock);
+    size = queue->size;
+    pthread_mutex_unlock(&queue->lock);
+
+    return (size);
 }
 
 void

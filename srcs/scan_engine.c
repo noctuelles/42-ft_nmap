@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/18 16:51:29 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/18 19:08:05 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,7 +23,6 @@
 #include <unistd.h>
 
 #include "checksum.h"
-#include "hash.h"
 #include "logger.h"
 #include "queue.h"
 #include "wrapper.h"
@@ -153,42 +152,48 @@ get_random_ephemeral_src_port(void) {
     return (rand() % (65535 - 49152 + 1) + 49152);
 }
 
-static void
-receiver_packet_handler(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
-    (void)pkthdr;
+static int
+receive_packet(pcap_t *pcap_hdl, t_scan_rslt *scan_rslt) {
+    struct pcap_pkthdr *pkthdr;
+    const u_char       *pkt;
+    struct ip          *ip     = NULL;
+    struct tcphdr      *tcphdr = NULL;
 
-    struct ip     *ip        = NULL;
-    struct tcphdr *tcphdr    = NULL;
-    t_scan_rslt   *scan_rslt = (t_scan_rslt *)user;
+    if (pcap_next_ex(pcap_hdl, &pkthdr, &pkt) != 1) {
+        return (-1);
+    }
 
-    // ethhdr = (struct ethhdr *)packet;
-
-    /* Do we have to check if the packet is big enough to accomodate everything ? */
-
-    // printf("Ethernet type: %x\n", ntohs(ethhdr->h_proto));
-    // printf("Source MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", ethhdr->h_source[0], ethhdr->h_source[1], ethhdr->h_source[2],
-    //        ethhdr->h_source[3], ethhdr->h_source[4], ethhdr->h_source[5]);
-    // printf("Destination MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n\n", ethhdr->h_dest[0], ethhdr->h_dest[1], ethhdr->h_dest[2],
-    //        ethhdr->h_dest[3], ethhdr->h_dest[4], ethhdr->h_dest[5]);
-
-    ip = (struct ip *)(packet + sizeof(struct ethhdr));
+    ip = (struct ip *)(pkt + sizeof(struct ethhdr));
 
     size_t ip_hdrlen = ip->ip_hl << 2;
 
     if (ip_hdrlen < sizeof(struct ip)) {
         fprintf(stderr, "Invalid IP header length: %lu\n", ip_hdrlen);
-        return;
+        return (-1);
     }
 
-    tcphdr = (struct tcphdr *)(packet + sizeof(struct ethhdr) + ip_hdrlen);
+    tcphdr = (struct tcphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
 
     if (tcphdr->syn && tcphdr->ack) {
         scan_rslt->status = OPEN;
     } else if (tcphdr->rst) {
         scan_rslt->status = CLOSED;
     }
+
+    /* */
+
+    return (0);
 }
 
+/**
+ * @brief
+ *
+ * @param ctx
+ * @param scan_rslt
+ * @return int
+ *
+ * @note The retry strategy is raw and unoptimized. It basically wait
+ */
 static int
 loop(const t_loop_ctx *ctx, t_scan_rslt *scan_rslt) {
     int            pcap_fd = 0;
@@ -203,20 +208,23 @@ loop(const t_loop_ctx *ctx, t_scan_rslt *scan_rslt) {
     FD_ZERO(&rfds);
     while (try_so_far < MAX_RETRIES) {
         timeout.tv_sec  = 0;
-        timeout.tv_usec = 500000;
+        timeout.tv_usec = 200000;
         FD_SET(pcap_fd, &rfds);
 
         send_tcp_packet(ctx->fd, ctx->src_ip.s_addr, ctx->src_port, ctx->dst_ip.s_addr, ctx->dst_port, SYN);
         try_so_far++;
 
-        if ((ret_val = select(pcap_fd + 1, &rfds, NULL, NULL, &timeout))) {
-            if (pcap_dispatch(ctx->pcap_hdl, 1, receiver_packet_handler, (u_char *)scan_rslt) == PCAP_ERROR) {
-                pcap_perror(ctx->pcap_hdl, "pcap_dispatch");
+        if ((ret_val = select(pcap_fd + 1, &rfds, NULL, NULL, &timeout)) == -1) {
+            return (-1);
+        } else if (ret_val) {
+            if (receive_packet(ctx->pcap_hdl, scan_rslt) != 0) {
                 return (-1);
             }
             break;
         }
     }
+
+    scan_rslt->status = FILTERED; /* In Syn Scan */
 
     return (0);
 }
@@ -241,7 +249,7 @@ thread_routine(void *data) {
     if (pcap_set_snaplen(loop_ctx.pcap_hdl, IP_MAXPACKET) != 0) {
         goto clean_pcap;
     }
-    if (pcap_set_timeout(loop_ctx.pcap_hdl, 10) != 0) {
+    if (pcap_setnonblock(loop_ctx.pcap_hdl, 1, NULL) != 0) {
         goto clean_pcap;
     }
     if (pcap_set_promisc(loop_ctx.pcap_hdl, 1) != 0) {
@@ -250,15 +258,17 @@ thread_routine(void *data) {
     if (Pcap_activate(loop_ctx.pcap_hdl) != 0) {
         goto clean_pcap;
     }
-    loop_ctx.src_ip   = ctx->local.sin_addr;
-    loop_ctx.src_port = get_random_ephemeral_src_port();
+    loop_ctx.src_ip = ctx->local.sin_addr;
     pthread_barrier_wait(ctx->sync_barrier);
+    loop_ctx.src_port = get_random_ephemeral_src_port();
     while ((elem = scan_queue_dequeue(ctx->scan_queue)) != NULL) {
-        memset(&scan_rslt, 0, sizeof(scan_rslt));
-        loop_ctx.dst_ip     = elem->resv_host->sockaddr.sin_addr;
-        loop_ctx.dst_port   = elem->port;
+        loop_ctx.dst_ip   = elem->resv_host->sockaddr.sin_addr;
+        loop_ctx.dst_port = elem->port;
+
         scan_rslt.resv_host = elem->resv_host;
         scan_rslt.port      = loop_ctx.dst_port;
+        scan_rslt.status    = UNDETERMINED;
+        scan_rslt.type      = SYN;
 
         inet_ntop(AF_INET, &loop_ctx.src_ip, p_src_ip, INET_ADDRSTRLEN);
         inet_ntop(AF_INET, &loop_ctx.dst_ip, p_dst_ip, INET_ADDRSTRLEN);

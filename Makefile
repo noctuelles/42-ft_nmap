@@ -6,7 +6,7 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/17 18:06:54 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/18 19:03:38 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -23,13 +23,12 @@ SRCS=main.c \
 	utils/wrapper.c \
 	scan_engine.c \
 	queue.c \
-	hash.c \
 	checksum.c
 
 OBJS=$(addprefix $(OBJS_DIR)/, $(SRCS:.c=.o))
 
 NAME=ft_nmap
-CFLAGS=-Wall -Wextra -Werror -Wpedantic -g3 -std=gnu11
+CFLAGS=-g3 -std=gnu11
 CC=gcc
 RM=rm -rf
 

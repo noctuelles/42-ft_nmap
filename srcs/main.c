@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/18 16:29:34 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/18 19:00:53 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,7 +23,6 @@
 #include <unistd.h>
 
 #include "checksum.h"
-#include "hash.h"
 #include "libft.h"
 #include "opts_parsing.h"
 #include "parsing.h"
@@ -121,14 +120,21 @@ main(int argc, char **argv) {
         }
     }
 
+    // const t_scan_queue_data *elem = NULL; /* Current scan element */
+    // while ((elem = scan_queue_dequeue(scan_queue)) != NULL) {
+    //     printf("%p\n", (void *)elem->resv_host);
+    // }
+
+    // return (0);
+
     pthread_t         threads_id[MAX_THREAD_COUNT];
     t_thread_ctx      threads[MAX_THREAD_COUNT];
     int              *thread_ret;
     pthread_barrier_t barrier;
     t_scan_rslt      *scan_rslts;
-    size_t            n_probes = ft_lstsize(hosts) * (g_opts.port_range[1] - g_opts.port_range[0]) + 1;
+    size_t            n_probes = ft_lstsize(hosts) * ((g_opts.port_range[1] - g_opts.port_range[0]) + 1);
 
-    if ((scan_rslts = Malloc(n_probes)) == NULL) {
+    if ((scan_rslts = Malloc(n_probes * sizeof(t_scan_rslt))) == NULL) {
         return (1);
     }
     pthread_barrier_init(&barrier, NULL, g_opts.threads);
@@ -159,6 +165,9 @@ main(int argc, char **argv) {
             case UNDETERMINED:
             case CLOSED:
                 printf("CLOSED\n");
+                break;
+            case FILTERED:
+                printf("FILTERED\n");
                 break;
             default:
                 printf("NOT HANDLED\n");
