@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/18 19:00:53 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/19 15:58:43 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -156,23 +156,23 @@ main(int argc, char **argv) {
         }
     }
 
-    for (size_t n = 0; n < n_probes; n++) {
-        printf("%s:%u is ", inet_ntoa(scan_rslts[n].resv_host->sockaddr.sin_addr), scan_rslts[n].port);
-        switch (scan_rslts[n].status) {
-            case OPEN:
-                printf("OPEN\n");
-                break;
-            case UNDETERMINED:
-            case CLOSED:
-                printf("CLOSED\n");
-                break;
-            case FILTERED:
-                printf("FILTERED\n");
-                break;
-            default:
-                printf("NOT HANDLED\n");
-        }
-    }
+    // for (size_t n = 0; n < n_probes; n++) {
+    //     printf("%s:%u is ", inet_ntoa(scan_rslts[n].resv_host->sockaddr.sin_addr), scan_rslts[n].port);
+    //     switch (scan_rslts[n].status) {
+    //         case OPEN:
+    //             printf("OPEN\n");
+    //             break;
+    //         case UNDETERMINED:
+    //         case CLOSED:
+    //             printf("CLOSED\n");
+    //             break;
+    //         case FILTERED:
+    //             printf("FILTERED\n");
+    //             break;
+    //         default:
+    //             printf("NOT HANDLED\n");
+    //     }
+    // }
 
     return (0);
 }

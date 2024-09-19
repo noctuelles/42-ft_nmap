@@ -6,13 +6,14 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/18 19:08:05 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/19 16:30:39 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <assert.h>
 #include <netinet/if_ether.h>
 #include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <pthread.h>
@@ -28,7 +29,15 @@
 #include "wrapper.h"
 
 #define MAX_RETRIES 3
-#define FILTER_TCP "dst host %s and (icmp or ((tcp) and (src host %s) and (src port %u) and (dst port %u)))"
+
+#define FILTER_ICMP_COND                                                                                                                \
+    "icmp[0] == 3 and (icmp[1] == 0 or icmp[1] == 2 or icmp[1] == 3 or icmp[1] == 9 or icmp[1] == 10 or icmp[1] == 13) and icmp[8] == " \
+    "0x45"
+
+#define FILTER_TCP_COND "tcp and (src host %s) and (src port %u) and (dst port %u)"
+
+#define FILTER_TCP "dst host %s and ((" FILTER_ICMP_COND ") or (" FILTER_TCP_COND "))"
+
 #define FILTER_MAX_SIZE (1 << 10)
 
 static int             g_thread_ok = 0;
@@ -153,15 +162,10 @@ get_random_ephemeral_src_port(void) {
 }
 
 static int
-receive_packet(pcap_t *pcap_hdl, t_scan_rslt *scan_rslt) {
-    struct pcap_pkthdr *pkthdr;
-    const u_char       *pkt;
-    struct ip          *ip     = NULL;
-    struct tcphdr      *tcphdr = NULL;
-
-    if (pcap_next_ex(pcap_hdl, &pkthdr, &pkt) != 1) {
-        return (-1);
-    }
+receive_packet(const u_char *pkt, t_scan_rslt *scan_rslt) {
+    struct ip      *ip      = NULL;
+    struct tcphdr  *tcphdr  = NULL;
+    struct icmphdr *icmphdr = NULL;
 
     ip = (struct ip *)(pkt + sizeof(struct ethhdr));
 
@@ -172,15 +176,21 @@ receive_packet(pcap_t *pcap_hdl, t_scan_rslt *scan_rslt) {
         return (-1);
     }
 
-    tcphdr = (struct tcphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
+    if (ip->ip_p == IPPROTO_TCP) {
+        tcphdr = (struct tcphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
 
-    if (tcphdr->syn && tcphdr->ack) {
-        scan_rslt->status = OPEN;
-    } else if (tcphdr->rst) {
-        scan_rslt->status = CLOSED;
+        if (tcphdr->syn && tcphdr->ack) {
+            scan_rslt->status = OPEN;
+        } else if (tcphdr->rst) {
+            scan_rslt->status = CLOSED;
+        }
+    } else if (ip->ip_p == IPPROTO_ICMP) {
+        tcphdr = (struct tcphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen + sizeof(struct icmphdr));
+
+        puts("IMCP");
+    } else {
+        puts("Unkown Proto");
     }
-
-    /* */
 
     return (0);
 }
@@ -195,36 +205,65 @@ receive_packet(pcap_t *pcap_hdl, t_scan_rslt *scan_rslt) {
  * @note The retry strategy is raw and unoptimized. It basically wait
  */
 static int
-loop(const t_loop_ctx *ctx, t_scan_rslt *scan_rslt) {
-    int            pcap_fd = 0;
-    fd_set         rfds;
-    size_t         try_so_far = 0;
-    int            ret_val    = 0;
-    struct timeval timeout;
+loop(t_loop_ctx *ctx, t_scan_rslt *scan_rslt) {
+    int                 pcap_fd = 0;
+    fd_set              rfds;
+    size_t              try_so_far = 0;
+    int                 ret_val    = 0;
+    struct pcap_pkthdr *pkthdr;
+    const u_char       *pkt;
+    struct timeval      timeout;
+    char                filter[FILTER_MAX_SIZE];                              /* Filter string */
+    char                p_dst_ip[INET_ADDRSTRLEN], p_src_ip[INET_ADDRSTRLEN]; /* Source and Destination IP Presentation*/
+    struct bpf_program  bpf_prog;
 
     if ((pcap_fd = pcap_get_selectable_fd(ctx->pcap_hdl)) == -1) {
         return (-1);
     }
     FD_ZERO(&rfds);
     while (try_so_far < MAX_RETRIES) {
-        timeout.tv_sec  = 0;
-        timeout.tv_usec = 200000;
-        FD_SET(pcap_fd, &rfds);
+        if (try_so_far != 0) {
+            ctx->src_port += 1;
+        }
+
+        /* Put filter */
+        inet_ntop(AF_INET, &ctx->src_ip, p_src_ip, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &ctx->dst_ip, p_dst_ip, INET_ADDRSTRLEN);
+        (void)snprintf(filter, sizeof(filter), FILTER_TCP, p_src_ip, p_dst_ip, ctx->dst_port, ctx->src_port);
+        if (Pcap_compile(ctx->pcap_hdl, &bpf_prog, filter, 0, 0) != 0) {
+            return (-1);
+        }
+        if (Pcap_setfilter(ctx->pcap_hdl, &bpf_prog) != 0) {
+            return (-1);
+        }
+        pcap_freecode(&bpf_prog);
 
         send_tcp_packet(ctx->fd, ctx->src_ip.s_addr, ctx->src_port, ctx->dst_ip.s_addr, ctx->dst_port, SYN);
         try_so_far++;
 
+    reload:
+        timeout.tv_sec  = 0;
+        timeout.tv_usec = 300000;
+        FD_SET(pcap_fd, &rfds);
         if ((ret_val = select(pcap_fd + 1, &rfds, NULL, NULL, &timeout)) == -1) {
             return (-1);
         } else if (ret_val) {
-            if (receive_packet(ctx->pcap_hdl, scan_rslt) != 0) {
+            if ((ret_val = pcap_next_ex(ctx->pcap_hdl, &pkthdr, &pkt)) == PCAP_ERROR) {
+                return (-1);
+            } else if (ret_val == 1) {
+                receive_packet(pkt, scan_rslt);
+                break;
+            } else if (ret_val == 0) {
+                goto reload;
+            } else {
                 return (-1);
             }
-            break;
         }
     }
 
-    scan_rslt->status = FILTERED; /* In Syn Scan */
+    if (scan_rslt->status == UNDETERMINED) {
+        scan_rslt->status = FILTERED;
+    }
 
     return (0);
 }
@@ -234,10 +273,7 @@ thread_routine(void *data) {
     t_thread_ctx            *ctx = data;
     t_loop_ctx               loop_ctx;
     t_scan_rslt              scan_rslt;
-    char                     filter[FILTER_MAX_SIZE];                              /* Filter string */
-    char                     p_dst_ip[INET_ADDRSTRLEN], p_src_ip[INET_ADDRSTRLEN]; /* Source and Destination IP Presentation*/
-    const t_scan_queue_data *elem = NULL;                                          /* Current scan element */
-    struct bpf_program       bpf_prog;
+    const t_scan_queue_data *elem    = NULL; /* Current scan element */
     int                     *ret_val = &g_thread_ko;
 
     if ((loop_ctx.fd = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
@@ -247,6 +283,12 @@ thread_routine(void *data) {
         goto clean_fd;
     }
     if (pcap_set_snaplen(loop_ctx.pcap_hdl, IP_MAXPACKET) != 0) {
+        goto clean_pcap;
+    }
+    if (pcap_set_immediate_mode(loop_ctx.pcap_hdl, 1) != 0) {
+        goto clean_pcap;
+    }
+    if (pcap_set_timeout(loop_ctx.pcap_hdl, 500) != 0) {
         goto clean_pcap;
     }
     if (pcap_setnonblock(loop_ctx.pcap_hdl, 1, NULL) != 0) {
@@ -270,19 +312,6 @@ thread_routine(void *data) {
         scan_rslt.status    = UNDETERMINED;
         scan_rslt.type      = SYN;
 
-        inet_ntop(AF_INET, &loop_ctx.src_ip, p_src_ip, INET_ADDRSTRLEN);
-        inet_ntop(AF_INET, &loop_ctx.dst_ip, p_dst_ip, INET_ADDRSTRLEN);
-
-        (void)snprintf(filter, sizeof(filter), FILTER_TCP, p_src_ip, p_dst_ip, loop_ctx.dst_port, loop_ctx.src_port);
-
-        if (Pcap_compile(loop_ctx.pcap_hdl, &bpf_prog, filter, 0, 0) != 0) {
-            goto clean_pcap;
-        }
-        if (Pcap_setfilter(loop_ctx.pcap_hdl, &bpf_prog) != 0) {
-            goto clean_bpf_prog;
-        }
-        pcap_freecode(&bpf_prog);
-
         if (loop(&loop_ctx, &scan_rslt) != 0) {
             goto clean_pcap;
         }
@@ -292,8 +321,6 @@ thread_routine(void *data) {
         pthread_mutex_unlock(&g_rslt_lock);
     }
     ret_val = &g_thread_ok;
-clean_bpf_prog:
-    pcap_freecode(&bpf_prog);
 clean_pcap:
     pcap_close(loop_ctx.pcap_hdl);
 clean_fd:
