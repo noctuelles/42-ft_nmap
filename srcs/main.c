@@ -6,7 +6,7 @@
 /*   By: etran <etran@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 18:41:41 by etran            ###   ########.fr       */
+/*   Updated: 2024/09/20 19:17:52 by etran            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -52,6 +52,27 @@ print_usage(void) {
         "both.\n");
 }
 
+static void
+print_intro() {
+    time_t    now    = time(NULL);
+    struct tm now_tm = *localtime(&now);
+    char      date[64];
+
+    (void)strftime(date, sizeof(date), "%c", &now_tm);
+    printf("Starting %s on %s.\n", program_invocation_short_name, date);
+    printf("Number of threads : %u\n", g_opts.threads);
+    printf("Scanning ports : [%u;%u] - for a total of %u ports. \n", g_opts.port_range[0], g_opts.port_range[1],
+           g_opts.port_range[1] - g_opts.port_range[0] + 1);
+    printf("Scan(s) to be performed :");
+    for (size_t n = 0; n < NBR_AVAILABLE_SCANS; n++) {
+        if (g_opts.scans_to_perform[n]) {
+            printf(" %s", g_available_scan_types[n]);
+        }
+    }
+    printf("\n");
+    printf("Scanning...\n");
+}
+
 #define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
 
 
@@ -89,6 +110,28 @@ _retrieve_hosts(t_list** hosts) {
     return (FT_SUCCESS);
 }
 
+static FT_RESULT
+_get_local_device_data(
+    const pcap_if_t* devices,
+    struct sockaddr_in* local_sockaddr,
+    struct sockaddr_in* local_netmask,
+    char** local_device_name
+) {
+    for (struct pcap_addr *addr = devices->addresses; addr != NULL; addr = addr->next) {
+        if (addr->addr->sa_family == AF_INET) {
+            memcpy(&local_sockaddr, addr->addr, sizeof(local_sockaddr));
+            memcpy(&local_netmask, addr->netmask, sizeof(local_netmask));
+            *local_device_name = strdup(devices->name);
+            break;
+        }
+    }
+    if (local_device_name == NULL) {
+        error(0, 0, "no network interface found");
+        return (FT_ERROR);
+    }
+    return (FT_SUCCESS);
+}
+
 /* https://www.tcpdump.org/pcap.html */
 int
 main(int argc, char **argv) {
@@ -112,46 +155,31 @@ main(int argc, char **argv) {
 
     struct sockaddr_in local_sockaddr, local_netmask;
     char              *local_device_name;
-
-    for (struct pcap_addr *addr = devices->addresses; addr != NULL; addr = addr->next) {
-        if (addr->addr->sa_family == AF_INET) {
-            memcpy(&local_sockaddr, addr->addr, sizeof(local_sockaddr));
-            memcpy(&local_netmask, addr->netmask, sizeof(local_netmask));
-            local_device_name = strdup(devices->name);
-            break;
-        }
-    }
-    if (local_device_name == NULL) {
-        error(0, 0, "no network interface found");
+    if (_get_local_device_data(devices, &local_sockaddr, &local_netmask, &local_device_name) == FT_ERROR) {
         return (1);
     }
+
     pcap_freealldevs(devices);
 
+    t_list *hosts_to_scan = NULL;
     t_scan_queue *scan_queue = NULL;
-
-    printf("There is %u hosts to scan.\n", ft_lstsize(hosts));
-    if ((scan_queue = new_scan_queue(ft_lstsize(hosts), (g_opts.port_range[1] - g_opts.port_range[0]) + 1)) == NULL) {
+    if ((scan_queue = new_scan_queue(ft_lstsize(hosts_to_scan), (g_opts.port_range[1] - g_opts.port_range[0]) + 1)) == NULL) {
         return (1);
     }
-    for (t_list *elem = hosts; elem != NULL; elem = elem->next) {
+    for (t_list *elem = hosts_to_scan; elem != NULL; elem = elem->next) {
         for (uint16_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
-            scan_queue_enqueue(scan_queue, elem->content, port, SYN);
+            scan_queue_enqueue(scan_queue, elem->content, port);
         }
     }
 
-    // const t_scan_queue_data *elem = NULL; /* Current scan element */
-    // while ((elem = scan_queue_dequeue(scan_queue)) != NULL) {
-    //     printf("%p\n", (void *)elem->resv_host);
-    // }
-
-    // return (0);
+    print_intro();
 
     pthread_t         threads_id[MAX_THREAD_COUNT];
     t_thread_ctx      threads[MAX_THREAD_COUNT];
     int              *thread_ret;
     pthread_barrier_t barrier;
     t_scan_rslt      *scan_rslts;
-    size_t            n_probes = ft_lstsize(hosts) * ((g_opts.port_range[1] - g_opts.port_range[0]) + 1);
+    size_t            n_probes = ft_lstsize(hosts_to_scan) * ((g_opts.port_range[1] - g_opts.port_range[0]) + 1);
 
     if ((scan_rslts = Malloc(n_probes * sizeof(t_scan_rslt))) == NULL) {
         return (1);
@@ -159,10 +187,12 @@ main(int argc, char **argv) {
     pthread_barrier_init(&barrier, NULL, g_opts.threads);
     for (size_t n = 0; n < g_opts.threads; n++) {
         threads[n].device       = local_device_name;
-        threads[n].scan_queue   = scan_queue;
         threads[n].local        = local_sockaddr;
+        threads[n].scan_queue   = scan_queue;
         threads[n].scan_rslts   = scan_rslts;
         threads[n].sync_barrier = &barrier;
+        memcpy(&threads[n].scans_to_perform, g_opts.scans_to_perform, sizeof(g_opts.scans_to_perform));
+
         if (pthread_create(&threads_id[n], NULL, thread_routine, &threads[n]) != 0) {
             return (1);
         }
@@ -175,23 +205,28 @@ main(int argc, char **argv) {
         }
     }
 
-    // for (size_t n = 0; n < n_probes; n++) {
-    //     printf("%s:%u is ", inet_ntoa(scan_rslts[n].resv_host->sockaddr.sin_addr), scan_rslts[n].port);
-    //     switch (scan_rslts[n].status) {
-    //         case OPEN:
-    //             printf("OPEN\n");
-    //             break;
-    //         case UNDETERMINED:
-    //         case CLOSED:
-    //             printf("CLOSED\n");
-    //             break;
-    //         case FILTERED:
-    //             printf("FILTERED\n");
-    //             break;
-    //         default:
-    //             printf("NOT HANDLED\n");
-    //     }
-    // }
+    for (size_t n = 0; n < n_probes; n++) {
+        printf("%s:%u is ", inet_ntoa(scan_rslts[n].resv_host->sockaddr.sin_addr), scan_rslts[n].port);
+        switch (scan_rslts[n].status) {
+            case OPEN:
+                printf("OPEN\n");
+                break;
+            case CLOSED:
+                printf("CLOSED\n");
+                break;
+            case FILTERED:
+                printf("FILTERED\n");
+                break;
+            case OPEN | FILTERED:
+                printf("OPEN | FILTERED\n");
+                break;
+            case UNFILTERED:
+                printf("UNFILTERED\n");
+                break;
+            default:
+                printf("UNKOWN\n");
+        }
+    }
 
     return (0);
 }

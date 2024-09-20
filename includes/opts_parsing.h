@@ -6,31 +6,24 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/06 22:50:51 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/17 16:31:57 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/20 17:14:34 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef OPTS_PARSING_H
 #define OPTS_PARSING_H
 
+#include <scan_engine.h>
+#include <stdbool.h>
 #include <stdint.h>
 
-#define MIN_PORT 1
-#define MAX_PORT_RANGE 1024
-
-#define DFLT_PORT_RANGE_START 1
-#define DFLT_PORT_RANGE_END 1024
-
-#define MAX_THREAD_COUNT 250
-
 typedef struct s_opts {
-    int         help;
-    uint16_t    port_range[2];   /* The port range is inclusive  */
-    const char *host;            /* The host to scan */
-    const char *hosts_file_path; /* The file containing the hosts to scan. */
-    uint16_t    threads;         /* The number of threads to use for the scan */
-    uint64_t    scan_type;       /* The type of scan to perform. The first 6 bit are used to
-                                   set the SYN, NULL, FIN, XMAS, ACK, UDP respectively. */
+    int                    help;
+    uint16_t               port_range[2];    /* The port range is inclusive  */
+    const char            *host;             /* The host to scan */
+    const char            *hosts_file_path;  /* The file containing the hosts to scan. */
+    uint16_t               threads;          /* The number of threads to use for the scan */
+    t_available_scans_list scans_to_perform; /* Each index */
 } t_opts;
 
 /**
@@ -42,5 +35,7 @@ typedef struct s_opts {
  * @return int 0 on success, 1 on error.
  */
 int parse_opts(int argc, char **argv, t_opts *opts);
+
+extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
 
 #endif
