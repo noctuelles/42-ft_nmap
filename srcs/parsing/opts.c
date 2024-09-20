@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/13 13:00:14 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/20 17:01:09 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,10 +18,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "ft_nmap.h"
 #include "opts_parsing.h"
+#include "scan_engine.h"
 #include "utils.h"
-
-static const char *g_available_scan_types[] = {"SYN", "NULL", "FIN", "XMAS", "ACK", "UDP"};
 
 static struct option g_long_options[] = {{"help", no_argument, NULL, 0},
                                          {"ports", required_argument, NULL, 'p'},
@@ -45,7 +45,7 @@ static struct option g_long_options[] = {{"help", no_argument, NULL, 0},
  * @return int 0 on success, 1 if input_scan_type is invalid.
  */
 static int
-parse_scan_type(const char *input_scan_type, uint64_t *scan_type_mask) {
+parse_scan_type(const char *input_scan_type, t_available_scans_list scan_list) {
     size_t scan_type_len = 0;
     size_t i             = 0;
 
@@ -59,7 +59,7 @@ parse_scan_type(const char *input_scan_type, uint64_t *scan_type_mask) {
             scan_type_len = strlen(g_available_scan_types[i]);
 
             if (strncmp(input_scan_type, g_available_scan_types[i], scan_type_len) == 0) {
-                SET_BIT(*scan_type_mask, i);
+                scan_list[i] = true;
                 break;
             }
             i++;
@@ -148,7 +148,7 @@ parse_opts(int argc, char **argv, t_opts *opts) {
     }
 
     /* Options default value */
-    opts->scan_type       = 64U; /* 64 is 0b111111, so all the scans are enabled by default. */
+    memset(g_opts.scans_to_perform, true, sizeof(g_opts.scans_to_perform));
     opts->port_range[0]   = DFLT_PORT_RANGE_START;
     opts->port_range[1]   = DFLT_PORT_RANGE_END;
     opts->threads         = 1;
@@ -185,7 +185,8 @@ parse_opts(int argc, char **argv, t_opts *opts) {
                 break;
             }
             case 's':
-                if (parse_scan_type(optarg, &opts->scan_type) == 1) {
+                memset(g_opts.scans_to_perform, false, sizeof(g_opts.scans_to_perform));
+                if (parse_scan_type(optarg, opts->scans_to_perform) == 1) {
                     return (1);
                 }
                 break;
