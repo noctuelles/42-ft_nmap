@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 18:15:19 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/20 19:27:11 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -157,21 +157,35 @@ get_random_ephemeral_src_port(void) {
     return (rand() % (65535 - 49152 + 1) + 49152);
 }
 
+/**
+ * @brief This routine is executed every time a packet is returned by pcap.
+ *
+ * @param pkt The packet raw content provided by pcap.
+ * @param pkthdr The packet header provided by pcap.
+ * @param scan_type Type of ongoing scan
+ * @param port_status Value-result argument.
+ * @return int 0 if the packet reading is ok, -1 is the packet is invalid and should be discarded.
+ */
 static int
-receive_packet(const u_char *pkt, t_scan_type scan_type, t_port_status *port_status) {
-    struct ip      *ip      = NULL;
+receive_packet(const u_char *pkt, const struct pcap_pkthdr *pkthdr, t_scan_type scan_type, t_port_status *port_status) {
+    struct ip      *iphdr   = NULL;
     struct tcphdr  *tcphdr  = NULL;
     struct icmphdr *icmphdr = NULL;
 
-    ip = (struct ip *)(pkt + sizeof(struct ethhdr));
+    /* Used for ICMP */
+    struct ip     *orig_iphdr  = NULL;
+    struct tcphdr *orig_tcphdr = NULL;
+    struct udphdr *orig_udphdr = NULL;
 
-    size_t ip_hdrlen = ip->ip_hl << 2;
+    iphdr = (struct ip *)(pkt + sizeof(struct ethhdr));
+
+    size_t ip_hdrlen = iphdr->ip_hl << 2;
 
     if (ip_hdrlen < sizeof(struct ip)) {
         return (-1);
     }
 
-    if (ip->ip_p == IPPROTO_TCP) {
+    if (iphdr->ip_p == IPPROTO_TCP) {
         tcphdr = (struct tcphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
 
         switch (scan_type) {
@@ -195,12 +209,19 @@ receive_packet(const u_char *pkt, t_scan_type scan_type, t_port_status *port_sta
                 }
                 break;
             default:
-                /* Never happen. */
                 *port_status = UNDETERMINED;
         }
-    } else if (ip->ip_p == IPPROTO_ICMP) {
-        /* TODO */
+    } else if (iphdr->ip_p == IPPROTO_ICMP) {
+        assert(0 && "Receiving ICMP packet not implemented yet");
         tcphdr = (struct tcphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen + sizeof(struct icmphdr));
+    } else if (iphdr->ip_p == IPPROTO_UDP) {
+        switch (scan_type) {
+            case STYPE_UDP:
+                *port_status = OPEN;
+                break;
+            default:
+                *port_status = UNDETERMINED;
+        }
     }
 
     return (0);

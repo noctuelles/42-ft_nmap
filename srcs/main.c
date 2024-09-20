@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 18:02:47 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/20 18:46:03 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -73,12 +73,16 @@ print_intro() {
 
 #define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
 
+void
+get_suitable_interface() {}
+
 /* https://www.tcpdump.org/pcap.html */
 int
 main(int argc, char **argv) {
-    t_list *hosts_to_scan = NULL;
+    t_list         *hosts_to_scan = NULL;
+    struct timespec scan_start, scan_end;
 
-    if (parse_opts(argc, argv, &g_opts) == 1) {
+    if (parse_opts(argc, argv, &g_opts) == -1) {
         return (1);
     }
     if (g_opts.help) {
@@ -112,7 +116,7 @@ main(int argc, char **argv) {
         return (1);
     }
     if (devs == NULL) {
-        error(0, 0, "no network interface found");
+        error(0, 0, "no network interface found.");
         return (1);
     }
     for (struct pcap_addr *addr = devs->addresses; addr != NULL; addr = addr->next) {
@@ -140,6 +144,7 @@ main(int argc, char **argv) {
     }
 
     print_intro();
+    (void)clock_gettime(CLOCK_MONOTONIC, &scan_start);
 
     pthread_t         threads_id[MAX_THREAD_COUNT];
     t_thread_ctx      threads[MAX_THREAD_COUNT];
@@ -171,6 +176,10 @@ main(int argc, char **argv) {
             return (1);
         }
     }
+
+    (void)clock_gettime(CLOCK_MONOTONIC, &scan_end);
+
+    printf("Took %us and %ums\n", scan_end.tv_sec - scan_start.tv_secc);
 
     for (size_t n = 0; n < n_probes; n++) {
         printf("%s:%u is ", inet_ntoa(scan_rslts[n].resv_host->sockaddr.sin_addr), scan_rslts[n].port);

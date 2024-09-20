@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 17:01:09 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/20 18:33:22 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -42,7 +42,7 @@ static struct option g_long_options[] = {{"help", no_argument, NULL, 0},
  *
  * @param input_scan_type The comma separated list of scan types.
  * @param scan_type_mask The mask to set the scan types.
- * @return int 0 on success, 1 if input_scan_type is invalid.
+ * @return int 0 on success, -1 if input_scan_type is invalid.
  */
 static int
 parse_scan_type(const char *input_scan_type, t_available_scans_list scan_list) {
@@ -51,7 +51,7 @@ parse_scan_type(const char *input_scan_type, t_available_scans_list scan_list) {
 
     if (*input_scan_type == '\0') {
         error(0, 0, "you should provide at least one scan type.");
-        return (1);
+        return (-1);
     }
     while (*input_scan_type != '\0') {
         i = 0;
@@ -66,18 +66,18 @@ parse_scan_type(const char *input_scan_type, t_available_scans_list scan_list) {
         }
         if (i == NSIZE(g_available_scan_types)) {
             error(0, 0, "invalid scan type: '%s'.", input_scan_type);
-            return (1);
+            return (-1);
         }
         input_scan_type += scan_type_len;
         if (*input_scan_type == ',') {
             input_scan_type++;
             if (*input_scan_type == '\0') {
                 error(0, 0, "trailing comma.");
-                return (1);
+                return (-1);
             }
         } else if (*input_scan_type != '\0') {
             error(0, 0, "each scan type should be separated by a comma.");
-            return (1);
+            return (-1);
         }
     }
     return (0);
@@ -93,7 +93,7 @@ parse_scan_type(const char *input_scan_type, t_available_scans_list scan_list) {
  *
  * @param input_port_range The input string containing the port range.
  * @param port_range The port range array to set.
- * @return int 0 on success, 1 if the input string is invalid.
+ * @return int 0 on success, -1 if the input string is invalid.
  */
 static int
 parse_port_range(const char *input_port_range, uint16_t port_range[2]) {
@@ -129,10 +129,10 @@ invalid_port_range:
           "invalid port range -- should be between %u and %u (inclusive) and "
           "in the form <port1>-<port2> where port1 > port2.",
           1, UINT16_MAX);
-    return (1);
+    return (-1);
 max_port_exceeded:
     error(0, 0, "invalid port range -- the numbers of ports scanned cannot exceed %u.", MAX_PORT_RANGE);
-    return (1);
+    return (-1);
 ok:
     return (0);
 }
@@ -178,7 +178,7 @@ parse_opts(int argc, char **argv, t_opts *opts) {
                           "invalid number of threads: max "
                           "%u)",
                           MAX_THREAD_COUNT);
-                    return (1);
+                    return (-1);
                 } else {
                     opts->threads = (uint16_t)rslt;
                 }
@@ -187,12 +187,12 @@ parse_opts(int argc, char **argv, t_opts *opts) {
             case 's':
                 memset(g_opts.scans_to_perform, false, sizeof(g_opts.scans_to_perform));
                 if (parse_scan_type(optarg, opts->scans_to_perform) == 1) {
-                    return (1);
+                    return (-1);
                 }
                 break;
             case 'p':
                 if (parse_port_range(optarg, opts->port_range) == 1) {
-                    return (1);
+                    return (-1);
                 }
                 break;
             case '?':
