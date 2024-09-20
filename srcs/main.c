@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   main.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
+/*   By: etran <etran@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/19 15:58:43 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/20 18:41:41 by etran            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,6 +31,8 @@
 #include "scan_engine.h"
 #include "wrapper.h"
 
+#include "type.h"
+
 extern const char *program_invocation_short_name;
 t_opts             g_opts = {0}; /* Program options */
 
@@ -52,6 +54,41 @@ print_usage(void) {
 
 #define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
 
+
+static FT_RESULT
+_retrieve_devices(pcap_if_t* devices) {
+    if (Pcap_findalldevs(&devices) == 1) {
+        return (FT_ERROR);
+    }
+    if (devices == NULL) {
+        error(0, 0, "no network interface found");
+        return (FT_ERROR);
+    }
+    return (FT_SUCCESS);
+}
+
+static FT_RESULT
+_retrieve_hosts(t_list** hosts) {
+    if (g_opts.host != NULL && g_opts.hosts_file_path != NULL) {
+        error(0, 0, "cannot set both the host and the file options");
+        return (FT_ERROR);
+    }
+    if (g_opts.host == NULL && g_opts.hosts_file_path == NULL) {
+        error(0, 0, "at least provide a host or a file containing the hosts to scan");
+        return (FT_ERROR);
+    }
+
+    if (g_opts.host) {
+        *hosts = parse_host_from_str(g_opts.host);
+    } else if (g_opts.hosts_file_path) {
+        *hosts = parse_host_from_file(g_opts.hosts_file_path);
+    }
+
+    if (hosts == NULL)
+        return (FT_ERROR);
+    return (FT_SUCCESS);
+}
+
 /* https://www.tcpdump.org/pcap.html */
 int
 main(int argc, char **argv) {
@@ -62,43 +99,25 @@ main(int argc, char **argv) {
         print_usage();
         return (0);
     }
-    if (g_opts.host != NULL && g_opts.hosts_file_path != NULL) {
-        error(0, 0, "cannot set both the host and the file options");
-        return (1);
-    }
-    if (g_opts.host == NULL && g_opts.hosts_file_path == NULL) {
-        error(0, 0, "at least provide a host or a file containing the hosts to scan");
-        return (1);
-    }
 
     t_list *hosts = NULL;
-
-    if (g_opts.host) {
-        if ((hosts = parse_host_from_str(g_opts.host)) == NULL) {
-            return (1);
-        }
-    } else if (g_opts.hosts_file_path) {
-        if ((hosts = parse_host_from_file(g_opts.hosts_file_path)) == NULL) {
-            return (1);
-        }
+    if (_retrieve_hosts(&hosts) == FT_ERROR) {
+        return (1);
     }
 
-    pcap_if_t         *devs = NULL;
+    pcap_if_t         *devices = NULL;
+    if (_retrieve_devices(devices) == FT_ERROR) {
+        return (1);
+    }
+
     struct sockaddr_in local_sockaddr, local_netmask;
     char              *local_device_name;
 
-    if (Pcap_findalldevs(&devs) == -1) {
-        return (1);
-    }
-    if (devs == NULL) {
-        error(0, 0, "no network interface found");
-        return (1);
-    }
-    for (struct pcap_addr *addr = devs->addresses; addr != NULL; addr = addr->next) {
+    for (struct pcap_addr *addr = devices->addresses; addr != NULL; addr = addr->next) {
         if (addr->addr->sa_family == AF_INET) {
             memcpy(&local_sockaddr, addr->addr, sizeof(local_sockaddr));
             memcpy(&local_netmask, addr->netmask, sizeof(local_netmask));
-            local_device_name = strdup(devs->name);
+            local_device_name = strdup(devices->name);
             break;
         }
     }
@@ -106,7 +125,7 @@ main(int argc, char **argv) {
         error(0, 0, "no network interface found");
         return (1);
     }
-    pcap_freealldevs(devs);
+    pcap_freealldevs(devices);
 
     t_scan_queue *scan_queue = NULL;
 

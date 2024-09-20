@@ -3,10 +3,10 @@
 /*                                                        :::      ::::::::   */
 /*   opts.c                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
-/*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
+/*   By: etran <etran@student.42.fr>                +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/13 13:00:14 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/20 17:09:27 by etran            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,13 +23,13 @@
 
 static const char *g_available_scan_types[] = {"SYN", "NULL", "FIN", "XMAS", "ACK", "UDP"};
 
-static struct option g_long_options[] = {{"help", no_argument, NULL, 0},
-                                         {"ports", required_argument, NULL, 'p'},
-                                         {"host", required_argument, NULL, 'h'},
-                                         {"speedup", required_argument, NULL, 'w'},
-                                         {"scan", required_argument, NULL, 's'},
-                                         {"file", required_argument, NULL, 'f'},
-                                         {NULL, 0, NULL, 0}};
+static struct option g_long_options[] = {{"help",       no_argument,        NULL, 0},
+                                         {"ports",      required_argument,  NULL, 'p'},
+                                         {"host",       required_argument,  NULL, 'h'},
+                                         {"speedup",    required_argument,  NULL, 'w'},
+                                         {"scan",       required_argument,  NULL, 's'},
+                                         {"file",       required_argument,  NULL, 'f'},
+                                         {NULL,         0,                  NULL, 0}};
 
 /**
  * @brief Parse the scan type from the input string and set the corresponding
@@ -46,16 +46,15 @@ static struct option g_long_options[] = {{"help", no_argument, NULL, 0},
  */
 static int
 parse_scan_type(const char *input_scan_type, uint64_t *scan_type_mask) {
-    size_t scan_type_len = 0;
-    size_t i             = 0;
-
     if (*input_scan_type == '\0') {
         error(0, 0, "you should provide at least one scan type.");
         return (1);
     }
+
     while (*input_scan_type != '\0') {
-        i = 0;
-        while (i < NSIZE(g_available_scan_types)) {
+        size_t scan_type_len = 0;
+        size_t i = 0;
+        while (i < NSIZE(g_available_scan_types)) { ///???
             scan_type_len = strlen(g_available_scan_types[i]);
 
             if (strncmp(input_scan_type, g_available_scan_types[i], scan_type_len) == 0) {
@@ -104,11 +103,13 @@ parse_port_range(const char *input_port_range, uint16_t port_range[2]) {
     if (token == NULL) {
         goto invalid_port_range;
     }
+
     val = strtol(token, &endptr, 10);
     if (errno == EINVAL || errno == ERANGE || *endptr != '\0' || val < MIN_PORT || val > UINT16_MAX) {
         goto invalid_port_range;
     }
     port_range[0] = val;
+
     if ((token = strtok(NULL, "-")) == NULL) {
         goto invalid_port_range;
     }
@@ -117,6 +118,7 @@ parse_port_range(const char *input_port_range, uint16_t port_range[2]) {
         goto invalid_port_range;
     }
     port_range[1] = val;
+
     if (port_range[0] > port_range[1]) {
         goto invalid_port_range;
     }
@@ -139,9 +141,6 @@ ok:
 
 int
 parse_opts(int argc, char **argv, t_opts *opts) {
-    int c       = 0;
-    int opt_idx = 0;
-
     if (argc < 2) {
         error(0, 0, "too few arguments provided");
         return (1);
@@ -156,6 +155,8 @@ parse_opts(int argc, char **argv, t_opts *opts) {
     opts->hosts_file_path = NULL;
     opts->help            = 0;
 
+    int c = 0;
+    int opt_idx = 0;
     while ((c = getopt_long(argc, argv, "p:h:w:s:f:", g_long_options, &opt_idx)) != -1) {
         switch (c) {
             case 0:
