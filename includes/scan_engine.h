@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:50:59 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/21 13:17:57 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/21 18:13:33 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,8 @@ typedef struct s_scan_queue t_scan_queue;
 #define MAX_THREAD_COUNT 250  /* Defines the maximum number of threads that can be used. */
 #define MAX_RETRIES 3         /* Defines how much try you should perform. */
 #define RETRY_DELAY 500       /* Defines the delay between each try in milliseconds. */
+#define MAX_SNAPLEN 100       /* We won't need much data in the packets. */
+#define MAX_PORT_RANGE 1024   /* At max, we can scan 1024 ports per host. */
 
 typedef bool t_available_scans_list[NBR_AVAILABLE_SCANS];
 typedef enum e_scan_type { /* TCP Scan */ STYPE_SYN, STYPE_NULL, STYPE_FIN, STYPE_XMAS, STYPE_ACK, /* UDP Scan */ STYPE_UDP } t_scan_type;
@@ -86,19 +88,22 @@ typedef enum e_port_status {
 } t_port_status;
 
 typedef struct s_scan_rslt {
-    const t_resv_host *resv_host; /* The scanned host. */
-    in_port_t          port;      /* The scanned port. */
-    t_port_status      status;    /* Status of the port (open,closed,filtered...).*/
-    t_scan_type        type;      /* Type of scan (SYN, NULL, ACK...). */
+    const t_resv_host *host; /* The scanned host. */
+    t_port_status      ports[MAX_PORT_RANGE][NBR_AVAILABLE_SCANS];
 } t_scan_rslt;
 
 typedef struct s_thread_ctx {
     t_available_scans_list scans_to_perform;
-    t_scan_rslt           *scan_rslts;   /* Each thread happen an element to this array everytime they finish a port scan. */
-    pthread_barrier_t     *sync_barrier; /* This barrier synchronise all threads so that they starts together. */
-    t_scan_queue          *scan_queue;   /* Each thread picks a job (an IP:PORT pair) from this queue. */
-    struct sockaddr_in     local;        /* The local IP address of the local interface to sniff on. */
-    const char            *device;       /* The name of the local interface to sniff on. */
+
+    t_scan_rslt *scan_rslts;
+    size_t       nbr_hosts;
+
+    pthread_barrier_t *sync_barrier; /* This barrier synchronise all threads so that they starts together. */
+    t_scan_queue      *scan_queue;   /* Each thread picks a job (an IP:PORT pair) from this queue. */
+
+    struct sockaddr_in local_sockaddr; /* The local IP address of the local interface to sniff on. */
+    struct sockaddr_in local_netmask;
+    const char        *device; /* The name of the local interface to sniff on. */
 } t_thread_ctx;
 
 void *thread_routine(void *data);

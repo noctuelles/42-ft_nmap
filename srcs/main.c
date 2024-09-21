@@ -6,12 +6,13 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/21 13:27:36 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/21 19:47:04 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <assert.h>
 #include <error.h>
+#include <netdb.h>
 #include <netinet/if_ether.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
@@ -68,7 +69,77 @@ print_intro() {
         }
     }
     printf("\n");
-    printf("Scanning...\n");
+    printf("Scanning... ");
+}
+
+static void
+print_results(const t_scan_rslt *scan_rslts, size_t nbr_hosts) {
+    const t_scan_rslt *scan_rslt = NULL;
+    char               presentation_ip[INET_ADDRSTRLEN];
+    struct servent    *servent = NULL;
+
+    for (size_t i = 0; i < nbr_hosts; i++) {
+        scan_rslt = &scan_rslts[i];
+
+        (void)inet_ntop(AF_INET, &scan_rslt->host->sockaddr.sin_addr, presentation_ip, sizeof(presentation_ip));
+
+        printf("Scan result for %s (%s)\n", scan_rslt->host->hostname, presentation_ip);
+        printf("port\t");
+        for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
+            if (g_opts.scans_to_perform[scan_type]) {
+                switch (scan_type) {
+                    case STYPE_SYN:
+                        printf("syn\t");
+                        break;
+                    case STYPE_NULL:
+                        printf("null\t");
+                        break;
+                    case STYPE_FIN:
+                        printf("fin\t");
+                        break;
+                    case STYPE_ACK:
+                        printf("ack\t");
+                        break;
+                    case STYPE_XMAS:
+                        printf("xmas\t");
+                        break;
+                    case STYPE_UDP:
+                        printf("udp\t");
+                        break;
+                }
+            }
+        }
+        printf("\n");
+
+        for (in_port_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
+            printf("%u\t", port);
+            for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
+                if (g_opts.scans_to_perform[scan_type]) {
+                    switch (scan_rslt->ports[port][scan_type]) {
+                        case OPEN:
+                            printf("open\t");
+                            break;
+                        case CLOSED:
+                            printf("closed\t");
+                            break;
+                        case FILTERED:
+                            printf("filtered\t");
+                            break;
+                        case UNFILTERED:
+                            printf("unfiltered\t");
+                            break;
+                        case OPEN | FILTERED:
+                            printf("open|filtered\t");
+                            break;
+                        default:
+                            printf("unkown");
+                            break;
+                    }
+                }
+            }
+            printf("\n");
+        }
+    }
 }
 
 #define FILTER "dst host %s and (icmp or ((tcp) and (src host %s)))"
@@ -81,6 +152,7 @@ int
 main(int argc, char **argv) {
     t_list         *hosts_to_scan = NULL;
     struct timespec scan_start, scan_end;
+    t_scan_rslt    *scan_rslts;
 
     if (parse_opts(argc, argv, &g_opts) == -1) {
         return (1);
@@ -106,6 +178,9 @@ main(int argc, char **argv) {
         if ((hosts_to_scan = parse_host_from_file(g_opts.hosts_file_path)) == NULL) {
             return (1);
         }
+    }
+    if ((scan_rslts = Malloc(sizeof(t_scan_rslt) * ft_lstsize(hosts_to_scan))) == NULL) {
+        return (1);
     }
 
     pcap_if_t         *devs = NULL;
@@ -137,7 +212,10 @@ main(int argc, char **argv) {
     if ((scan_queue = new_scan_queue(ft_lstsize(hosts_to_scan), (g_opts.port_range[1] - g_opts.port_range[0]) + 1)) == NULL) {
         return (1);
     }
+
+    size_t i = 0;
     for (t_list *elem = hosts_to_scan; elem != NULL; elem = elem->next) {
+        scan_rslts[i++].host = elem->content;
         for (uint16_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
             scan_queue_enqueue(scan_queue, elem->content, port);
         }
@@ -158,19 +236,16 @@ main(int argc, char **argv) {
     t_thread_ctx      threads[MAX_THREAD_COUNT];
     int              *thread_ret;
     pthread_barrier_t barrier;
-    t_scan_rslt      *scan_rslts;
-    size_t            n_probes = ft_lstsize(hosts_to_scan) * ((g_opts.port_range[1] - g_opts.port_range[0]) + 1) * nbr_scan_to_perform;
 
-    if ((scan_rslts = Malloc(n_probes * sizeof(t_scan_rslt))) == NULL) {
-        return (1);
-    }
     pthread_barrier_init(&barrier, NULL, g_opts.threads);
     for (size_t n = 0; n < g_opts.threads; n++) {
-        threads[n].device       = local_device_name;
-        threads[n].local        = local_sockaddr;
-        threads[n].scan_queue   = scan_queue;
-        threads[n].scan_rslts   = scan_rslts;
-        threads[n].sync_barrier = &barrier;
+        threads[n].device         = local_device_name;
+        threads[n].local_sockaddr = local_sockaddr;
+        threads[n].local_netmask  = local_netmask;
+        threads[n].scan_queue     = scan_queue;
+        threads[n].scan_rslts     = scan_rslts;
+        threads[n].nbr_hosts      = ft_lstsize(hosts_to_scan);
+        threads[n].sync_barrier   = &barrier;
         memcpy(&threads[n].scans_to_perform, g_opts.scans_to_perform, sizeof(g_opts.scans_to_perform));
 
         if (pthread_create(&threads_id[n], NULL, thread_routine, &threads[n]) != 0) {
@@ -187,30 +262,9 @@ main(int argc, char **argv) {
 
     (void)clock_gettime(CLOCK_MONOTONIC, &scan_end);
 
-    printf("Took about %us to perform the scan.\n", scan_end.tv_sec - scan_start.tv_sec);
+    printf("Scan took about %ld seconds.\n", scan_end.tv_sec - scan_start.tv_sec);
 
-    for (size_t n = 0; n < n_probes; n++) {
-        printf("%s:%u is ", inet_ntoa(scan_rslts[n].resv_host->sockaddr.sin_addr), scan_rslts[n].port);
-        switch (scan_rslts[n].status) {
-            case OPEN:
-                printf("OPEN\n");
-                break;
-            case CLOSED:
-                printf("CLOSED\n");
-                break;
-            case FILTERED:
-                printf("FILTERED\n");
-                break;
-            case OPEN | FILTERED:
-                printf("OPEN | FILTERED\n");
-                break;
-            case UNFILTERED:
-                printf("UNFILTERED\n");
-                break;
-            default:
-                printf("UNKOWN\n");
-        }
-    }
+    print_results(scan_rslts, ft_lstsize(hosts_to_scan));
 
     return (0);
 }

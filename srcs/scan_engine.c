@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/21 13:34:31 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/21 18:47:32 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -46,13 +46,11 @@ const char *g_available_scan_types[NBR_AVAILABLE_SCANS] = {"SYN", "NULL", "FIN",
 static int g_thread_ok = 0;
 static int g_thread_ko = -1;
 
-static pthread_mutex_t g_rslt_lock = PTHREAD_MUTEX_INITIALIZER; /* This mutex is used to lock the scan results array. */
-static int             g_rslt_idx  = 0;
-
 typedef struct s_scan_ctx {
     int                sending_sock;
     pcap_t            *pcap_hdl; /* Pcap handle that we use to sniff packets on. */
     struct sockaddr_in src;
+    struct sockaddr_in src_netmask;
     struct sockaddr_in dst;
     t_scan_type        type;
     t_port_status      port_status;
@@ -258,7 +256,7 @@ apply_pcap_filter(t_scan_ctx *scan_ctx) {
         (void)snprintf(filter, sizeof(filter), FILTER_UDP, presentation_src_ip, presentation_dst_ip, scan_ctx->dst.sin_port,
                        scan_ctx->src.sin_port);
     }
-    if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, PCAP_NETMASK_UNKNOWN) == PCAP_ERROR) {
+    if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, scan_ctx->src_netmask.sin_addr.s_addr) == PCAP_ERROR) {
         goto clean;
     }
     if (pcap_setfilter(scan_ctx->pcap_hdl, &bpf_prog) != 0) {
@@ -353,12 +351,28 @@ scan_port(t_scan_ctx *scan_ctx) {
     return (0);
 }
 
+static void
+insert_port_status_into_results(const t_resv_host *host, t_scan_rslt *scan_rslts, size_t nbr_hosts, in_port_t port, t_scan_type scan_type,
+                                t_port_status port_status) {
+    t_scan_rslt *scan_rslt = NULL;
+
+    for (size_t i = 0; i < nbr_hosts; i++) {
+        if (scan_rslts[i].host == host) {
+            scan_rslt = &scan_rslts[i];
+            break;
+        }
+    }
+
+    scan_rslt->ports[port][scan_type] = port_status;
+}
+
 void *
 thread_routine(void *data) {
-    t_thread_ctx            *thread_ctx = data;
-    t_scan_ctx               scan_ctx;
-    const t_scan_queue_data *to_scan = NULL; /* Current scan element */
-    int                     *ret_val = &g_thread_ko;
+    t_thread_ctx            *thread_ctx     = data;
+    t_scan_rslt             *host_scan_rslt = NULL;
+    t_scan_ctx               scan_ctx       = {0};
+    const t_scan_queue_data *to_scan        = NULL; /* Current scan element */
+    int                     *ret_val        = &g_thread_ko;
 
     if ((scan_ctx.sending_sock = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
         return (&g_thread_ko);
@@ -366,7 +380,7 @@ thread_routine(void *data) {
     if ((scan_ctx.pcap_hdl = Pcap_create(thread_ctx->device)) == NULL) {
         goto clean_fd;
     }
-    if (pcap_set_snaplen(scan_ctx.pcap_hdl, IP_MAXPACKET) != 0) {
+    if (pcap_set_snaplen(scan_ctx.pcap_hdl, MAX_SNAPLEN) != 0) {
         goto clean_pcap;
     }
     if (pcap_set_immediate_mode(scan_ctx.pcap_hdl, 1) != 0) {
@@ -387,14 +401,15 @@ thread_routine(void *data) {
 
     pthread_barrier_wait(thread_ctx->sync_barrier);
 
-    scan_ctx.src.sin_addr = thread_ctx->local.sin_addr;
+    scan_ctx.src.sin_addr = thread_ctx->local_sockaddr.sin_addr;
     scan_ctx.src.sin_port = get_random_ephemeral_src_port();
+    scan_ctx.src_netmask  = thread_ctx->local_netmask;
     while ((to_scan = scan_queue_dequeue(thread_ctx->scan_queue)) != NULL) {
         scan_ctx.dst.sin_addr = to_scan->resv_host->sockaddr.sin_addr;
         scan_ctx.dst.sin_port = to_scan->port;
-
         for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
             if (thread_ctx->scans_to_perform[scan_type]) {
+                host_scan_rslt       = NULL;
                 scan_ctx.type        = scan_type;
                 scan_ctx.port_status = UNDETERMINED;
 
@@ -402,13 +417,15 @@ thread_routine(void *data) {
                     goto clean_pcap;
                 }
 
-                pthread_mutex_lock(&g_rslt_lock);
-                thread_ctx->scan_rslts[g_rslt_idx].resv_host = to_scan->resv_host;
-                thread_ctx->scan_rslts[g_rslt_idx].port      = to_scan->port;
-                thread_ctx->scan_rslts[g_rslt_idx].type      = scan_ctx.type;
-                thread_ctx->scan_rslts[g_rslt_idx].status    = scan_ctx.port_status;
-                g_rslt_idx++;
-                pthread_mutex_unlock(&g_rslt_lock);
+                for (size_t i = 0; i < thread_ctx->nbr_hosts; i++) {
+                    if (thread_ctx->scan_rslts[i].host = to_scan->resv_host) {
+                        host_scan_rslt = &thread_ctx->scan_rslts[i];
+                        break;
+                    }
+                }
+                assert(host_scan_rslt != NULL);
+
+                host_scan_rslt->ports[scan_ctx.dst.sin_port][scan_ctx.type] = scan_ctx.port_status;
             }
         }
     }
