@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/21 18:47:32 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/21 23:28:33 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -30,9 +30,7 @@
 #include "queue.h"
 #include "wrapper.h"
 
-#define FILTER_ICMP_COND                                                                                                                \
-    "icmp[0] == 3 and (icmp[1] == 0 or icmp[1] == 2 or icmp[1] == 3 or icmp[1] == 9 or icmp[1] == 10 or icmp[1] == 13) and icmp[8] == " \
-    "0x45"
+#define FILTER_ICMP_COND "icmp"
 #define FILTER_TCP_COND "tcp and (src host %s) and (src port %u) and (dst port %u)"
 #define FILTER_UDP_COND "udp and (src host %s) and (src port %u) and (dst port %u)"
 
@@ -114,48 +112,43 @@ send_tcp_packet(int sock_raw_fd, in_addr_t src_ip, in_port_t src_port, in_addr_t
     return (0);
 }
 
-// static int
-// send_udp_packet(int sock_raw_fd, in_addr_t local_ip, in_addr_t dest_ip, in_port_t dest_port, const char key[16]) {
-//     struct ip          ip       = {0};
-//     struct udphdr      udp      = {0};
-//     struct sockaddr_in destsock = {0};
-//     uint32_t           data     = 0;
-//     uint8_t            packet[IP_MAXPACKET];
+static int
+send_udp_packet(int sock_raw_fd, in_addr_t src_ip, in_port_t src_port, in_addr_t dest_ip, in_port_t dest_port) {
+    struct ip          ip       = {0};
+    struct udphdr      udp      = {0};
+    struct sockaddr_in destsock = {0};
+    uint8_t            packet[IP_MAXPACKET];
 
-//     ip.ip_src.s_addr = local_ip;
-//     ip.ip_dst.s_addr = dest_ip;
-//     ip.ip_off        = 0;
-//     ip.ip_sum        = 0; /* Always filled by the kernel. */
-//     ip.ip_len        = 0; /* Always filled by the kernel. */
-//     ip.ip_id         = 0; /* Filled by the kernel when equals to 0. */
-//     ip.ip_hl         = 5; /* Header length */
-//     ip.ip_tos        = 0;
-//     ip.ip_ttl        = 64;
-//     ip.ip_p          = IPPROTO_UDP;
-//     ip.ip_v          = IPVERSION;
+    ip.ip_src.s_addr = src_ip;
+    ip.ip_dst.s_addr = src_port;
+    ip.ip_off        = 0;
+    ip.ip_sum        = 0; /* Always filled by the kernel. */
+    ip.ip_len        = 0; /* Always filled by the kernel. */
+    ip.ip_id         = 0; /* Filled by the kernel when equals to 0. */
+    ip.ip_hl         = 5; /* Header length */
+    ip.ip_tos        = 0;
+    ip.ip_ttl        = 64;
+    ip.ip_p          = IPPROTO_UDP;
+    ip.ip_v          = IPVERSION;
 
-//     const uint16_t ephemeral_port_start = 49152;
-//     const uint16_t ephemeral_port_end   = 65535;
+    const uint16_t ephemeral_port_start = 49152;
+    const uint16_t ephemeral_port_end   = 65535;
 
-//     udp.source = htons(rand() % (ephemeral_port_end - ephemeral_port_start + 1) + ephemeral_port_start);
-//     udp.dest   = htons(dest_port);
-//     udp.len    = htons(sizeof(udp) + sizeof(data));
-//     data       = get_syn_cookie(ip.ip_src.s_addr, udp.dest, ip.ip_dst.s_addr, udp.source,
-//                                 key);  // NOT very sure of this one. The syn-cookie method doesn't work (i think) for UDP.
-//     udp.check  = compute_udphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, udp, &data, sizeof(data));
+    udp.source = htons(src_port);
+    udp.dest   = htons(dest_port);
+    udp.len    = htons(sizeof(udp));
+    udp.check  = compute_udphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, udp, NULL, 0);
 
-//     memcpy(packet, &ip, sizeof(ip));
-//     memcpy(packet + sizeof(ip), &udp, sizeof(udp));
-//     memcpy(packet + sizeof(ip) + sizeof(udp), &data, sizeof(data));
+    memcpy(packet, &ip, sizeof(ip));
+    memcpy(packet + sizeof(ip), &udp, sizeof(udp));
 
-//     destsock.sin_addr.s_addr = dest_ip;
-//     destsock.sin_port        = dest_port;
-//     if (Sendto(sock_raw_fd, packet, sizeof(ip) + sizeof(udp) + sizeof(data), 0, (const struct sockaddr *)&destsock, sizeof(destsock)) ==
-//         -1) {
-//         return (-1);
-//     }
-//     return (0);
-// }
+    destsock.sin_addr.s_addr = dest_ip;
+    destsock.sin_port        = dest_port;
+    if (Sendto(sock_raw_fd, packet, sizeof(ip) + sizeof(udp), 0, (const struct sockaddr *)&destsock, sizeof(destsock)) == -1) {
+        return (-1);
+    }
+    return (0);
+}
 
 static uint16_t
 get_random_ephemeral_src_port(void) {
@@ -172,19 +165,21 @@ get_random_ephemeral_src_port(void) {
  * @return int 0 if the packet is the result of one of our probe, -1 is the packet is not relevant: this is not a fatal error.
  */
 static int
-process_packet(const u_char *pkt, const struct pcap_pkthdr *pkthdr, t_scan_type scan_type, t_port_status *port_status) {
-    struct ip      *iphdr   = NULL;
-    struct tcphdr  *tcphdr  = NULL;
-    struct icmphdr *icmphdr = NULL;
+process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr *pkthdr) {
+    size_t                ip_hdrlen = 0;
+    const struct ip      *iphdr     = NULL;
+    const struct tcphdr  *tcphdr    = NULL;
+    const struct icmphdr *icmphdr   = NULL;
 
     /* Used for ICMP */
-    struct ip     *orig_iphdr  = NULL;
-    struct tcphdr *orig_tcphdr = NULL;
-    struct udphdr *orig_udphdr = NULL;
+    size_t         orig_ip_hdrlen = 0;
+    struct ip     *orig_iphdr     = NULL;
+    struct tcphdr *orig_tcphdr    = NULL;
+    struct udphdr *orig_udphdr    = NULL;
 
     iphdr = (struct ip *)(pkt + sizeof(struct ethhdr));
 
-    size_t ip_hdrlen = iphdr->ip_hl << 2;
+    ip_hdrlen = iphdr->ip_hl << 2;
 
     if (ip_hdrlen < sizeof(struct ip)) {
         return (-1);
@@ -193,39 +188,86 @@ process_packet(const u_char *pkt, const struct pcap_pkthdr *pkthdr, t_scan_type 
     if (iphdr->ip_p == IPPROTO_TCP) {
         tcphdr = (struct tcphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
 
-        switch (scan_type) {
+        switch (scan_ctx->type) {
             case STYPE_SYN:
                 if (tcphdr->syn && tcphdr->ack) {
-                    *port_status = OPEN;
+                    scan_ctx->port_status = OPEN;
                 } else if (tcphdr->rst) {
-                    *port_status = CLOSED;
+                    scan_ctx->port_status = CLOSED;
                 }
                 break;
             case STYPE_NULL:
             case STYPE_FIN:
             case STYPE_XMAS:
                 if (tcphdr->rst) {
-                    *port_status = CLOSED;
+                    scan_ctx->port_status = CLOSED;
                 }
                 break;
             case STYPE_ACK:
                 if (tcphdr->rst) {
-                    *port_status = UNFILTERED;
+                    scan_ctx->port_status = UNFILTERED;
                 }
                 break;
             default:
-                *port_status = UNDETERMINED;
+                scan_ctx->port_status = UNDETERMINED;
         }
     } else if (iphdr->ip_p == IPPROTO_ICMP) {
-        assert(0 && "Receiving ICMP packet not implemented yet");
-        tcphdr = (struct tcphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen + sizeof(struct icmphdr));
+        icmphdr    = (struct icmphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
+        orig_iphdr = (struct ip *)((u_char *)(icmphdr) + sizeof(struct icmphdr));
+
+        orig_ip_hdrlen = orig_iphdr->ip_hl << 2;
+
+        if (orig_ip_hdrlen < sizeof(struct ip)) {
+            return (-1);
+        }
+        if (orig_iphdr->ip_src.s_addr != scan_ctx->src.sin_addr.s_addr || orig_iphdr->ip_dst.s_addr != scan_ctx->dst.sin_addr.s_addr) {
+            return (-1);
+        }
+        if (IS_TCP_SCAN(scan_ctx->type)) {
+            if (orig_iphdr->ip_p != IPPROTO_TCP) {
+                return (-1);
+            }
+
+            orig_tcphdr = (struct tcphdr *)((u_char *)orig_iphdr + orig_ip_hdrlen);
+
+            if (htons(orig_tcphdr->source) != scan_ctx->src.sin_port || htons(orig_tcphdr->dest) != scan_ctx->dst.sin_port) {
+                return (-1);
+            }
+        } else if (IS_UDP_SCAN(scan_ctx->type)) {
+            if (orig_iphdr->ip_p != IPPROTO_UDP) {
+                return (-1);
+            }
+
+            orig_udphdr = (struct udphdr *)((u_char *)orig_iphdr + orig_ip_hdrlen);
+
+            if (htons(orig_udphdr->source) != scan_ctx->src.sin_port || htons(orig_udphdr->dest) != scan_ctx->dst.sin_port) {
+                return (-1);
+            }
+        }
+
+        if (icmphdr->type == ICMP_DEST_UNREACH) {
+            if (icmphdr->code == ICMP_PORT_UNREACH) {
+                if (IS_UDP_SCAN(scan_ctx->type)) {
+                    scan_ctx->port_status = CLOSED;
+                }
+            }
+
+            if (icmphdr->code == ICMP_HOST_UNREACH || icmphdr->code == ICMP_PROT_UNREACH || icmphdr->code == ICMP_PORT_UNREACH ||
+                icmphdr->code == ICMP_NET_ANO || icmphdr->code == ICMP_HOST_ANO || icmphdr->code == ICMP_PKT_FILTERED) {
+                scan_ctx->port_status = FILTERED;
+            } else {
+                return (-1);
+            }
+        } else {
+            return (-1);
+        }
     } else if (iphdr->ip_p == IPPROTO_UDP) {
-        switch (scan_type) {
+        switch (scan_ctx->type) {
             case STYPE_UDP:
-                *port_status = OPEN;
+                scan_ctx->port_status = OPEN;
                 break;
             default:
-                *port_status = UNDETERMINED;
+                scan_ctx->port_status = UNDETERMINED;
         }
     }
 
@@ -300,10 +342,15 @@ scan_port(t_scan_ctx *scan_ctx) {
             return (-1);
         }
         if (IS_TCP_SCAN(scan_ctx->type)) {
-            send_tcp_packet(scan_ctx->sending_sock, scan_ctx->src.sin_addr.s_addr, scan_ctx->src.sin_port, scan_ctx->dst.sin_addr.s_addr,
-                            scan_ctx->dst.sin_port, scan_ctx->type);
+            if (send_tcp_packet(scan_ctx->sending_sock, scan_ctx->src.sin_addr.s_addr, scan_ctx->src.sin_port,
+                                scan_ctx->dst.sin_addr.s_addr, scan_ctx->dst.sin_port, scan_ctx->type) == -1) {
+                return (-1);
+            }
         } else if (IS_UDP_SCAN(scan_ctx->type)) {
-            assert(0 && "UDP scan not implemented yet");
+            if (send_udp_packet(scan_ctx->sending_sock, scan_ctx->src.sin_addr.s_addr, scan_ctx->src.sin_port,
+                                scan_ctx->dst.sin_addr.s_addr, scan_ctx->dst.sin_port) == -1) {
+                return (-1);
+            }
         }
         try_so_far++;
 
@@ -314,7 +361,7 @@ scan_port(t_scan_ctx *scan_ctx) {
             continue; /* A timeout occured; send the probe again. */
         } else if (ret_val == 1 && pollfd.revents & POLLIN) {
             if ((ret_val = pcap_next_ex(scan_ctx->pcap_hdl, &pkthdr, &pkt)) == 1) {
-                if (process_packet(pkt, pkthdr, scan_ctx->type, &scan_ctx->port_status) != 0) {
+                if (process_packet(scan_ctx, pkt, pkthdr) != 0) {
                     goto arm_poll;
                 } else {
                     break; /* A valid response was sent to our probe. */
