@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 18:33:22 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/21 12:41:21 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -144,7 +144,7 @@ parse_opts(int argc, char **argv, t_opts *opts) {
 
     if (argc < 2) {
         error(0, 0, "too few arguments provided");
-        return (1);
+        return (-1);
     }
 
     /* Options default value */

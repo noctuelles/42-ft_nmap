@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 18:46:03 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/21 13:27:36 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -143,6 +143,14 @@ main(int argc, char **argv) {
         }
     }
 
+    size_t nbr_scan_to_perform = 0;
+
+    for (size_t n = 0; n < NBR_AVAILABLE_SCANS; n++) {
+        if (g_opts.scans_to_perform[n]) {
+            nbr_scan_to_perform++;
+        }
+    }
+
     print_intro();
     (void)clock_gettime(CLOCK_MONOTONIC, &scan_start);
 
@@ -151,7 +159,7 @@ main(int argc, char **argv) {
     int              *thread_ret;
     pthread_barrier_t barrier;
     t_scan_rslt      *scan_rslts;
-    size_t            n_probes = ft_lstsize(hosts_to_scan) * ((g_opts.port_range[1] - g_opts.port_range[0]) + 1);
+    size_t            n_probes = ft_lstsize(hosts_to_scan) * ((g_opts.port_range[1] - g_opts.port_range[0]) + 1) * nbr_scan_to_perform;
 
     if ((scan_rslts = Malloc(n_probes * sizeof(t_scan_rslt))) == NULL) {
         return (1);
@@ -179,7 +187,7 @@ main(int argc, char **argv) {
 
     (void)clock_gettime(CLOCK_MONOTONIC, &scan_end);
 
-    printf("Took %us and %ums\n", scan_end.tv_sec - scan_start.tv_secc);
+    printf("Took about %us to perform the scan.\n", scan_end.tv_sec - scan_start.tv_sec);
 
     for (size_t n = 0; n < n_probes; n++) {
         printf("%s:%u is ", inet_ntoa(scan_rslts[n].resv_host->sockaddr.sin_addr), scan_rslts[n].port);

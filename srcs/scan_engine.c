@@ -6,9 +6,11 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 19:27:11 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/21 13:34:31 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+
+#include "scan_engine.h"
 
 #include <assert.h>
 #include <netinet/if_ether.h>
@@ -16,6 +18,7 @@
 #include <netinet/ip_icmp.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <poll.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +27,6 @@
 #include <unistd.h>
 
 #include "checksum.h"
-#include "logger.h"
 #include "queue.h"
 #include "wrapper.h"
 
@@ -32,7 +34,11 @@
     "icmp[0] == 3 and (icmp[1] == 0 or icmp[1] == 2 or icmp[1] == 3 or icmp[1] == 9 or icmp[1] == 10 or icmp[1] == 13) and icmp[8] == " \
     "0x45"
 #define FILTER_TCP_COND "tcp and (src host %s) and (src port %u) and (dst port %u)"
+#define FILTER_UDP_COND "udp and (src host %s) and (src port %u) and (dst port %u)"
+
 #define FILTER_TCP "dst host %s and ((" FILTER_ICMP_COND ") or (" FILTER_TCP_COND "))"
+#define FILTER_UDP "dst host %s and ((" FILTER_ICMP_COND ") or (" FILTER_UDP_COND "))"
+
 #define FILTER_MAX_SIZE (1 << 10)
 
 const char *g_available_scan_types[NBR_AVAILABLE_SCANS] = {"SYN", "NULL", "FIN", "XMAS", "ACK", "UDP"};
@@ -49,6 +55,7 @@ typedef struct s_scan_ctx {
     struct sockaddr_in src;
     struct sockaddr_in dst;
     t_scan_type        type;
+    t_port_status      port_status;
 } t_scan_ctx;
 
 static int
@@ -161,13 +168,13 @@ get_random_ephemeral_src_port(void) {
  * @brief This routine is executed every time a packet is returned by pcap.
  *
  * @param pkt The packet raw content provided by pcap.
- * @param pkthdr The packet header provided by pcap.
- * @param scan_type Type of ongoing scan
+ * @param pkthdr The packet header of the pcap capture.
+ * @param scan_type Type of ongoing scan.
  * @param port_status Value-result argument.
- * @return int 0 if the packet reading is ok, -1 is the packet is invalid and should be discarded.
+ * @return int 0 if the packet is the result of one of our probe, -1 is the packet is not relevant: this is not a fatal error.
  */
 static int
-receive_packet(const u_char *pkt, const struct pcap_pkthdr *pkthdr, t_scan_type scan_type, t_port_status *port_status) {
+process_packet(const u_char *pkt, const struct pcap_pkthdr *pkthdr, t_scan_type scan_type, t_port_status *port_status) {
     struct ip      *iphdr   = NULL;
     struct tcphdr  *tcphdr  = NULL;
     struct icmphdr *icmphdr = NULL;
@@ -228,71 +235,96 @@ receive_packet(const u_char *pkt, const struct pcap_pkthdr *pkthdr, t_scan_type 
 }
 
 /**
- * @brief This loop
+ * @brief Apply a filter to the pcap handle before sending the probe.
  *
- * @param ctx
- * @param scan_rslt
- * @return int
- *
- * @note The retry strategy is raw and unoptimized. It basically wait
+ * @param scan_ctx The scan context.
+ * @return int 0 on success, -1 on error.
  */
 static int
-scan_port(t_scan_ctx *scan_ctx, t_port_status *port_status) {
-    int                 pcap_fd = 0;
-    fd_set              rfds;
+apply_pcap_filter(t_scan_ctx *scan_ctx) {
+    char               presentation_dst_ip[INET_ADDRSTRLEN];
+    char               presentation_src_ip[INET_ADDRSTRLEN];
+    char               filter[FILTER_MAX_SIZE];
+    struct bpf_program bpf_prog;
+    int                ret_val = -1;
+
+    (void)inet_ntop(AF_INET, &scan_ctx->src.sin_addr, presentation_src_ip, sizeof(presentation_src_ip));
+    (void)inet_ntop(AF_INET, &scan_ctx->dst.sin_addr, presentation_dst_ip, sizeof(presentation_dst_ip));
+
+    if (IS_TCP_SCAN(scan_ctx->type)) {
+        (void)snprintf(filter, sizeof(filter), FILTER_TCP, presentation_src_ip, presentation_dst_ip, scan_ctx->dst.sin_port,
+                       scan_ctx->src.sin_port);
+    } else if (IS_UDP_SCAN(scan_ctx->type)) {
+        (void)snprintf(filter, sizeof(filter), FILTER_UDP, presentation_src_ip, presentation_dst_ip, scan_ctx->dst.sin_port,
+                       scan_ctx->src.sin_port);
+    }
+    if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, PCAP_NETMASK_UNKNOWN) == PCAP_ERROR) {
+        goto clean;
+    }
+    if (pcap_setfilter(scan_ctx->pcap_hdl, &bpf_prog) != 0) {
+        goto clean;
+    }
+    ret_val = 0;
+clean:
+    pcap_freecode(&bpf_prog);
+    return (ret_val);
+}
+
+/**
+ * @brief For a given scan context, try to conclude the status of the port by sending probes and waiting for an adequate response.
+ *
+ * @param ctx The scan context.
+ * @return int 0 on success, -1 on error.
+ *
+ */
+static int
+scan_port(t_scan_ctx *scan_ctx) {
+    struct pcap_pkthdr *pkthdr     = NULL;
+    const u_char       *pkt        = NULL;
     size_t              try_so_far = 0;
     int                 ret_val    = 0;
-    struct pcap_pkthdr *pkthdr;
-    const u_char       *pkt;
-    struct timeval      timeout;
-    char                filter[FILTER_MAX_SIZE];                              /* Filter string */
-    char                p_dst_ip[INET_ADDRSTRLEN], p_src_ip[INET_ADDRSTRLEN]; /* Source and Destination IP Presentation*/
-    struct bpf_program  bpf_prog;
+    struct pollfd       pollfd     = {0};
 
-    if ((pcap_fd = pcap_get_selectable_fd(scan_ctx->pcap_hdl)) == -1) {
+    pollfd.events = POLLIN;
+    if ((pollfd.fd = pcap_get_selectable_fd(scan_ctx->pcap_hdl)) == -1) {
         return (-1);
     }
-    FD_ZERO(&rfds);
+
+    /**
+     * Event loop. We send the probe and wait for a response. If we don't receive any response under a specific timeframe, we
+     * retransmit the probe.
+     */
     while (try_so_far < MAX_RETRIES) {
         if (try_so_far != 0) {
             scan_ctx->src.sin_port += 1;
         }
-
-        /* Build the filter */
-        inet_ntop(AF_INET, &scan_ctx->src.sin_addr, p_src_ip, INET_ADDRSTRLEN);
-        inet_ntop(AF_INET, &scan_ctx->dst.sin_addr, p_dst_ip, INET_ADDRSTRLEN);
-        (void)snprintf(filter, sizeof(filter), FILTER_TCP, p_src_ip, p_dst_ip, scan_ctx->dst.sin_port, scan_ctx->src.sin_port);
-        if (Pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, 0) != 0) {
+        if (apply_pcap_filter(scan_ctx) != 0) {
             return (-1);
         }
-        if (Pcap_setfilter(scan_ctx->pcap_hdl, &bpf_prog) != 0) {
-            return (-1);
-        }
-        pcap_freecode(&bpf_prog);
-
-        if (scan_ctx->type >= STYPE_SYN && scan_ctx->type <= STYPE_ACK) {
+        if (IS_TCP_SCAN(scan_ctx->type)) {
             send_tcp_packet(scan_ctx->sending_sock, scan_ctx->src.sin_addr.s_addr, scan_ctx->src.sin_port, scan_ctx->dst.sin_addr.s_addr,
                             scan_ctx->dst.sin_port, scan_ctx->type);
-        } else if (scan_ctx->type == STYPE_UDP) {
-            assert(0 && "UDP Not implemented yet");
+        } else if (IS_UDP_SCAN(scan_ctx->type)) {
+            assert(0 && "UDP scan not implemented yet");
         }
-
         try_so_far++;
 
-    reload:
-        timeout.tv_sec  = 0;
-        timeout.tv_usec = 300000;
-        FD_SET(pcap_fd, &rfds);
-        if ((ret_val = select(pcap_fd + 1, &rfds, NULL, NULL, &timeout)) == -1) {
+    arm_poll:
+        if ((ret_val = poll(&pollfd, 1, RETRY_DELAY)) == -1) {
             return (-1);
-        } else if (ret_val) {
-            if ((ret_val = pcap_next_ex(scan_ctx->pcap_hdl, &pkthdr, &pkt)) == PCAP_ERROR) {
-                return (-1);
-            } else if (ret_val == 1) {
-                receive_packet(pkt, scan_ctx->type, port_status);
-                break;
+        } else if (ret_val == 0) {
+            continue; /* A timeout occured; send the probe again. */
+        } else if (ret_val == 1 && pollfd.revents & POLLIN) {
+            if ((ret_val = pcap_next_ex(scan_ctx->pcap_hdl, &pkthdr, &pkt)) == 1) {
+                if (process_packet(pkt, pkthdr, scan_ctx->type, &scan_ctx->port_status) != 0) {
+                    goto arm_poll;
+                } else {
+                    break; /* A valid response was sent to our probe. */
+                }
             } else if (ret_val == 0) {
-                goto reload;
+                /* Can happen even if poll notified us that there is data to read : this condition happens when they're is a lot of
+                 * concurrent threads. In this case, we re-arm poll. */
+                goto arm_poll;
             } else {
                 return (-1);
             }
@@ -301,20 +333,20 @@ scan_port(t_scan_ctx *scan_ctx, t_port_status *port_status) {
 
     /* At this point, if the port status is UNDETERMINED, it means that we didn't receive any response to our probe even after
      * retransmissions. */
-    if (*port_status == UNDETERMINED) {
+    if (scan_ctx->port_status == UNDETERMINED) {
         switch (scan_ctx->type) {
             case STYPE_SYN:
-                *port_status = FILTERED;
+                scan_ctx->port_status = FILTERED;
                 break;
             case STYPE_NULL:
             case STYPE_FIN:
             case STYPE_XMAS:
-                *port_status = OPEN | FILTERED;
+                scan_ctx->port_status = OPEN | FILTERED;
                 break;
             case STYPE_ACK:
-                *port_status = FILTERED;
+                scan_ctx->port_status = FILTERED;
             case STYPE_UDP:
-                *port_status = OPEN | FILTERED;
+                scan_ctx->port_status = OPEN | FILTERED;
         }
     }
 
@@ -325,7 +357,6 @@ void *
 thread_routine(void *data) {
     t_thread_ctx            *thread_ctx = data;
     t_scan_ctx               scan_ctx;
-    t_port_status            port_status;
     const t_scan_queue_data *to_scan = NULL; /* Current scan element */
     int                     *ret_val = &g_thread_ko;
 
@@ -364,17 +395,18 @@ thread_routine(void *data) {
 
         for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
             if (thread_ctx->scans_to_perform[scan_type]) {
-                scan_ctx.type = scan_type;
+                scan_ctx.type        = scan_type;
+                scan_ctx.port_status = UNDETERMINED;
 
-                if (scan_port(&scan_ctx, &port_status) != 0) {
+                if (scan_port(&scan_ctx) != 0) {
                     goto clean_pcap;
                 }
 
                 pthread_mutex_lock(&g_rslt_lock);
                 thread_ctx->scan_rslts[g_rslt_idx].resv_host = to_scan->resv_host;
                 thread_ctx->scan_rslts[g_rslt_idx].port      = to_scan->port;
-                thread_ctx->scan_rslts[g_rslt_idx].type      = scan_type;
-                thread_ctx->scan_rslts[g_rslt_idx].status    = port_status;
+                thread_ctx->scan_rslts[g_rslt_idx].type      = scan_ctx.type;
+                thread_ctx->scan_rslts[g_rslt_idx].status    = scan_ctx.port_status;
                 g_rslt_idx++;
                 pthread_mutex_unlock(&g_rslt_lock);
             }

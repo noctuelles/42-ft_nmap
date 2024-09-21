@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:50:59 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 18:11:28 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/21 13:17:57 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -17,12 +17,16 @@
 
 typedef struct s_scan_queue t_scan_queue;
 
-#define NBR_AVAILABLE_SCANS 6
-#define MAX_THREAD_COUNT 250
-#define MAX_RETRIES 3 /* Defines how much try you should perform. */
+#define NBR_AVAILABLE_SCANS 6 /* Defines the number of available scan types. */
+#define MAX_THREAD_COUNT 250  /* Defines the maximum number of threads that can be used. */
+#define MAX_RETRIES 3         /* Defines how much try you should perform. */
+#define RETRY_DELAY 500       /* Defines the delay between each try in milliseconds. */
 
 typedef bool t_available_scans_list[NBR_AVAILABLE_SCANS];
 typedef enum e_scan_type { /* TCP Scan */ STYPE_SYN, STYPE_NULL, STYPE_FIN, STYPE_XMAS, STYPE_ACK, /* UDP Scan */ STYPE_UDP } t_scan_type;
+
+#define IS_TCP_SCAN(scan_type) ((scan_type) >= STYPE_SYN && (scan_type) <= STYPE_ACK)
+#define IS_UDP_SCAN(scan_type) ((scan_type) == STYPE_UDP)
 
 extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
 
