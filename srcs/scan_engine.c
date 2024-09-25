@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/21 18:47:32 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/25 14:23:43 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -27,6 +27,7 @@
 #include <unistd.h>
 
 #include "checksum.h"
+#include "packet.h"
 #include "queue.h"
 #include "wrapper.h"
 
@@ -55,112 +56,6 @@ typedef struct s_scan_ctx {
     t_scan_type        type;
     t_port_status      port_status;
 } t_scan_ctx;
-
-static int
-send_tcp_packet(int sock_raw_fd, in_addr_t src_ip, in_port_t src_port, in_addr_t dest_ip, in_port_t dest_port, t_scan_type scan_type) {
-    struct ip          ip       = {0};
-    struct tcphdr      tcp      = {0};
-    struct sockaddr_in destsock = {0};
-    uint8_t            packet[IP_MAXPACKET];
-
-    ip.ip_src.s_addr = src_ip;
-    ip.ip_dst.s_addr = dest_ip;
-    ip.ip_off        = 0;
-    ip.ip_sum        = 0; /* Always filled by the kernel. */
-    ip.ip_len        = 0; /* Always filled by the kernel. */
-    ip.ip_id         = 0; /* Filled by the kernel when equals to 0. */
-    ip.ip_hl         = 5; /* Header length */
-    ip.ip_tos        = 0;
-    ip.ip_ttl        = 64;
-    ip.ip_p          = IPPROTO_TCP;
-    ip.ip_v          = IPVERSION;
-
-    switch (scan_type) {
-        case STYPE_SYN:
-            tcp.syn = 1;
-            break;
-        case STYPE_NULL:
-            break;
-        case STYPE_FIN:
-            tcp.fin = 1;
-            break;
-        case STYPE_XMAS:
-            tcp.fin = 1;
-            tcp.psh = 1;
-            tcp.urg = 1;
-            break;
-        case STYPE_ACK:
-            tcp.ack = 1;
-            break;
-        default:
-            assert(0 && "Trying to send a TCP packet with a non-TCP scan type.");
-    }
-
-    tcp.source = htons(src_port);
-    tcp.dest   = htons(dest_port);
-    tcp.window = htons(1024);
-    tcp.seq    = rand();
-    tcp.doff   = 5;
-
-    tcp.check = compute_tcphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, tcp, NULL, 0);
-    memcpy(packet, &ip, sizeof(ip));
-    memcpy(packet + sizeof(ip), &tcp, sizeof(tcp));
-
-    destsock.sin_addr.s_addr = dest_ip;
-    destsock.sin_port        = dest_port;
-    if (Sendto(sock_raw_fd, packet, sizeof(ip) + sizeof(tcp), 0, (const struct sockaddr *)&destsock, sizeof(destsock)) == -1) {
-        return (-1);
-    }
-    return (0);
-}
-
-// static int
-// send_udp_packet(int sock_raw_fd, in_addr_t local_ip, in_addr_t dest_ip, in_port_t dest_port, const char key[16]) {
-//     struct ip          ip       = {0};
-//     struct udphdr      udp      = {0};
-//     struct sockaddr_in destsock = {0};
-//     uint32_t           data     = 0;
-//     uint8_t            packet[IP_MAXPACKET];
-
-//     ip.ip_src.s_addr = local_ip;
-//     ip.ip_dst.s_addr = dest_ip;
-//     ip.ip_off        = 0;
-//     ip.ip_sum        = 0; /* Always filled by the kernel. */
-//     ip.ip_len        = 0; /* Always filled by the kernel. */
-//     ip.ip_id         = 0; /* Filled by the kernel when equals to 0. */
-//     ip.ip_hl         = 5; /* Header length */
-//     ip.ip_tos        = 0;
-//     ip.ip_ttl        = 64;
-//     ip.ip_p          = IPPROTO_UDP;
-//     ip.ip_v          = IPVERSION;
-
-//     const uint16_t ephemeral_port_start = 49152;
-//     const uint16_t ephemeral_port_end   = 65535;
-
-//     udp.source = htons(rand() % (ephemeral_port_end - ephemeral_port_start + 1) + ephemeral_port_start);
-//     udp.dest   = htons(dest_port);
-//     udp.len    = htons(sizeof(udp) + sizeof(data));
-//     data       = get_syn_cookie(ip.ip_src.s_addr, udp.dest, ip.ip_dst.s_addr, udp.source,
-//                                 key);  // NOT very sure of this one. The syn-cookie method doesn't work (i think) for UDP.
-//     udp.check  = compute_udphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, udp, &data, sizeof(data));
-
-//     memcpy(packet, &ip, sizeof(ip));
-//     memcpy(packet + sizeof(ip), &udp, sizeof(udp));
-//     memcpy(packet + sizeof(ip) + sizeof(udp), &data, sizeof(data));
-
-//     destsock.sin_addr.s_addr = dest_ip;
-//     destsock.sin_port        = dest_port;
-//     if (Sendto(sock_raw_fd, packet, sizeof(ip) + sizeof(udp) + sizeof(data), 0, (const struct sockaddr *)&destsock, sizeof(destsock)) ==
-//         -1) {
-//         return (-1);
-//     }
-//     return (0);
-// }
-
-static uint16_t
-get_random_ephemeral_src_port(void) {
-    return (rand() % (65535 - 49152 + 1) + 49152);
-}
 
 /**
  * @brief This routine is executed every time a packet is returned by pcap.
@@ -196,25 +91,25 @@ process_packet(const u_char *pkt, const struct pcap_pkthdr *pkthdr, t_scan_type 
         switch (scan_type) {
             case STYPE_SYN:
                 if (tcphdr->syn && tcphdr->ack) {
-                    *port_status = OPEN;
+                    *port_status = PORT_OPEN;
                 } else if (tcphdr->rst) {
-                    *port_status = CLOSED;
+                    *port_status = PORT_CLOSED;
                 }
                 break;
             case STYPE_NULL:
             case STYPE_FIN:
             case STYPE_XMAS:
                 if (tcphdr->rst) {
-                    *port_status = CLOSED;
+                    *port_status = PORT_CLOSED;
                 }
                 break;
             case STYPE_ACK:
                 if (tcphdr->rst) {
-                    *port_status = UNFILTERED;
+                    *port_status = PORT_UNFILTERED;
                 }
                 break;
             default:
-                *port_status = UNDETERMINED;
+                *port_status = PORT_UNDETERMINED;
         }
     } else if (iphdr->ip_p == IPPROTO_ICMP) {
         assert(0 && "Receiving ICMP packet not implemented yet");
@@ -222,10 +117,10 @@ process_packet(const u_char *pkt, const struct pcap_pkthdr *pkthdr, t_scan_type 
     } else if (iphdr->ip_p == IPPROTO_UDP) {
         switch (scan_type) {
             case STYPE_UDP:
-                *port_status = OPEN;
+                *port_status = PORT_OPEN;
                 break;
             default:
-                *port_status = UNDETERMINED;
+                *port_status = PORT_UNDETERMINED;
         }
     }
 
@@ -329,22 +224,22 @@ scan_port(t_scan_ctx *scan_ctx) {
         }
     }
 
-    /* At this point, if the port status is UNDETERMINED, it means that we didn't receive any response to our probe even after
+    /* At this point, if the port status is PORT_UNDETERMINED, it means that we didn't receive any response to our probe even after
      * retransmissions. */
-    if (scan_ctx->port_status == UNDETERMINED) {
+    if (scan_ctx->port_status == PORT_UNDETERMINED) {
         switch (scan_ctx->type) {
             case STYPE_SYN:
-                scan_ctx->port_status = FILTERED;
+                scan_ctx->port_status = PORT_FILTERED;
                 break;
             case STYPE_NULL:
             case STYPE_FIN:
             case STYPE_XMAS:
-                scan_ctx->port_status = OPEN | FILTERED;
+                scan_ctx->port_status = PORT_OPEN | PORT_FILTERED;
                 break;
             case STYPE_ACK:
-                scan_ctx->port_status = FILTERED;
+                scan_ctx->port_status = PORT_FILTERED;
             case STYPE_UDP:
-                scan_ctx->port_status = OPEN | FILTERED;
+                scan_ctx->port_status = PORT_OPEN | PORT_FILTERED;
         }
     }
 
@@ -411,7 +306,7 @@ thread_routine(void *data) {
             if (thread_ctx->scans_to_perform[scan_type]) {
                 host_scan_rslt       = NULL;
                 scan_ctx.type        = scan_type;
-                scan_ctx.port_status = UNDETERMINED;
+                scan_ctx.port_status = PORT_UNDETERMINED;
 
                 if (scan_port(&scan_ctx) != 0) {
                     goto clean_pcap;

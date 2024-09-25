@@ -6,26 +6,16 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:50:59 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/21 18:13:33 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/25 14:28:08 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef SCAN_ENGINE_H
 #define SCAN_ENGINE_H
 
-#include "parsing.h"
+#include "ft_nmap.h"
 
 typedef struct s_scan_queue t_scan_queue;
-
-#define NBR_AVAILABLE_SCANS 6 /* Defines the number of available scan types. */
-#define MAX_THREAD_COUNT 250  /* Defines the maximum number of threads that can be used. */
-#define MAX_RETRIES 3         /* Defines how much try you should perform. */
-#define RETRY_DELAY 500       /* Defines the delay between each try in milliseconds. */
-#define MAX_SNAPLEN 100       /* We won't need much data in the packets. */
-#define MAX_PORT_RANGE 1024   /* At max, we can scan 1024 ports per host. */
-
-typedef bool t_available_scans_list[NBR_AVAILABLE_SCANS];
-typedef enum e_scan_type { /* TCP Scan */ STYPE_SYN, STYPE_NULL, STYPE_FIN, STYPE_XMAS, STYPE_ACK, /* UDP Scan */ STYPE_UDP } t_scan_type;
 
 #define IS_TCP_SCAN(scan_type) ((scan_type) >= STYPE_SYN && (scan_type) <= STYPE_ACK)
 #define IS_UDP_SCAN(scan_type) ((scan_type) == STYPE_UDP)
@@ -80,11 +70,11 @@ extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
 */
 
 typedef enum e_port_status {
-    UNDETERMINED = 0,
-    OPEN         = 1U,
-    CLOSED       = 1U << 1,
-    FILTERED     = 1U << 2,
-    UNFILTERED   = 1U << 3,
+    PORT_UNDETERMINED = 0,
+    PORT_OPEN         = 1U,
+    PORT_CLOSED       = 1U << 1,
+    PORT_FILTERED     = 1U << 2,
+    PORT_UNFILTERED   = 1U << 3,
 } t_port_status;
 
 typedef struct s_scan_rslt {
@@ -105,6 +95,8 @@ typedef struct s_thread_ctx {
     struct sockaddr_in local_netmask;
     const char        *device; /* The name of the local interface to sniff on. */
 } t_thread_ctx;
+
+extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
 
 void *thread_routine(void *data);
 

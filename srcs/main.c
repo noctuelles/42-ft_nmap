@@ -6,24 +6,16 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/21 19:47:04 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/25 14:25:45 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include <assert.h>
 #include <error.h>
-#include <netdb.h>
-#include <netinet/if_ether.h>
-#include <netinet/tcp.h>
-#include <netinet/udp.h>
 #include <pthread.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
-#include "checksum.h"
 #include "libft.h"
 #include "opts_parsing.h"
 #include "parsing.h"
@@ -116,19 +108,19 @@ print_results(const t_scan_rslt *scan_rslts, size_t nbr_hosts) {
             for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
                 if (g_opts.scans_to_perform[scan_type]) {
                     switch (scan_rslt->ports[port][scan_type]) {
-                        case OPEN:
+                        case PORT_OPEN:
                             printf("open\t");
                             break;
-                        case CLOSED:
+                        case PORT_CLOSED:
                             printf("closed\t");
                             break;
-                        case FILTERED:
+                        case PORT_FILTERED:
                             printf("filtered\t");
                             break;
-                        case UNFILTERED:
+                        case PORT_UNFILTERED:
                             printf("unfiltered\t");
                             break;
-                        case OPEN | FILTERED:
+                        case PORT_OPEN | PORT_FILTERED:
                             printf("open|filtered\t");
                             break;
                         default:
@@ -179,6 +171,7 @@ main(int argc, char **argv) {
             return (1);
         }
     }
+
     if ((scan_rslts = Malloc(sizeof(t_scan_rslt) * ft_lstsize(hosts_to_scan))) == NULL) {
         return (1);
     }

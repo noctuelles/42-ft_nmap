@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 14:31:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/17 16:50:05 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/25 14:15:26 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -110,4 +110,24 @@ compute_udphdr_checksum(in_addr_t source_ip, in_addr_t dest_ip, struct udphdr ud
     memcpy(buffer + sizeof(pseudo_udphdr) + sizeof(udphdr), udp_data, udp_data_len);
 
     return (compute_internet_checksum(buffer, sizeof(pseudo_udphdr) + sizeof(udphdr) + udp_data_len));
+}
+
+/**
+ * @brief Compute the checksum of an ICMP header under IPv4.
+ *
+ * @param icmphdr The ICMP header to compute the checksum from.
+ * @param icmpdata The ICMP data to compute the checksum from.
+ * @param icmp_data_len The length of the ICMP data in bytes.
+ * @return uint16_t The computed checksum.
+ */
+uint16_t
+compute_imcphdr_checksum(struct icmphdr icmphdr, void *icmpdata, size_t icmp_data_len) {
+    uint8_t buffer[IP_MAXPACKET];
+
+    icmphdr.checksum = 0;
+
+    memcpy(buffer, &icmphdr, sizeof(icmphdr));
+    memcpy(buffer + sizeof(icmphdr), icmpdata, icmp_data_len);
+
+    return (compute_internet_checksum(buffer, sizeof(icmphdr) + icmp_data_len));
 }
