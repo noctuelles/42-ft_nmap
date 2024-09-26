@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 17:16:36 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 17:38:12 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -242,10 +242,11 @@ main(int argc, char **argv) {
     print_intro(&ft_nmap);
     (void)clock_gettime(CLOCK_MONOTONIC, &ft_nmap.scan_start);
     for (i = 0; i < g_opts.threads; i++) {
-        ft_nmap.threads[i].device     = ft_nmap.devices_info[DEVICE_DFT];
-        ft_nmap.threads[i].scan_queue = ft_nmap.scan_queue;
-        ft_nmap.threads[i].scan_rslts = ft_nmap.scan_rslts;
-        ft_nmap.threads[i].nbr_hosts  = ft_nmap.nbr_hosts;
+        ft_nmap.threads[i].device      = ft_nmap.devices_info[DEVICE_DFT];
+        ft_nmap.threads[i].scan_queue  = ft_nmap.scan_queue;
+        ft_nmap.threads[i].scan_rslts  = ft_nmap.scan_rslts;
+        ft_nmap.threads[i].nbr_hosts   = ft_nmap.nbr_hosts;
+        ft_nmap.threads[i].thread_type = THREAD_HOST_REMOTE;
         memcpy(&ft_nmap.threads[i].scans_to_perform, &g_opts.scans_to_perform, sizeof(g_opts.scans_to_perform));
 
         if (pthread_create(&ft_nmap.threads[i].thread_id, NULL, thread_routine, &ft_nmap.threads[i]) != 0) {

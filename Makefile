@@ -6,7 +6,7 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/26 15:42:29 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/26 17:19:17 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -41,7 +41,7 @@ all: $(NAME)
 
 $(NAME): $(OBJS) $(LIBPCAP) $(LIBFT)
 	$(CC) -o $(NAME) $(OBJS) -L $(LIBPCAP_DIR) -lpcap -L $(LIBFT_DIR) -lft
-	sudo setcap cap_net_raw,cap_net_admin=eip $(NAME)
+#sudo setcap cap_net_raw,cap_net_admin=eip $(NAME)
 
 $(OBJS_DIR)/%.o: $(SRCS_DIR)/%.c
 	@mkdir -p $(dir $@)

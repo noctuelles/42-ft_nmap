@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:50:59 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 15:42:58 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 17:25:47 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -87,12 +87,13 @@ typedef struct s_scan_rslt {
 } t_scan_rslt;
 
 typedef enum e_thread_type {
-    HOST_LOCALHOST_THREAD,
-    HOST_REMOTE_THREAD,
+    THREAD_HOST_LO,
+    THREAD_HOST_REMOTE,
 } t_thread_type;
 
 typedef struct s_thread_ctx {
     t_available_scans_list scans_to_perform;
+    t_thread_type          thread_type;
     t_device_info          device;
     size_t                 nbr_hosts;
     t_scan_rslt           *scan_rslts;

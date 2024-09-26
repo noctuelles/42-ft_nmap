@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/07 14:29:13 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 15:44:34 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 17:36:53 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,8 +28,10 @@ typedef struct s_ft_nmap {
     bool            hosts_loopback;            /* True if one of the host resolves to the loopback address. */
     size_t          nbr_hosts;                 /* The number of hosts to scan. */
     t_scan_queue   *scan_queue;                /* The scan queue. */
+    t_scan_queue   *loopback_queue;            /* The loopback queue. */
     t_scan_rslt    *scan_rslts;                /* The scan results. The size of this array is nbr_hosts. */
     t_thread_ctx    threads[MAX_THREAD_COUNT]; /* The threads to use for the scan. */
+    t_thread_ctx    lo_thread;                 /* The loopback thread. */
     struct timespec scan_start;                /* The time when the scan started. */
     struct timespec scan_end;                  /* The time when the scan ended. */
 } t_ft_nmap;

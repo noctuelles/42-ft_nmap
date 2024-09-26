@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 17:05:18 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 17:49:56 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -274,6 +274,9 @@ thread_routine(void *data) {
     if ((scan_ctx.pcap_hdl = Pcap_create(thread_ctx->device.name)) == NULL) {
         goto clean_fd;
     }
+    if (pcap_datalink(scan_ctx.pcap_hdl) != DLT_EN10MB) {
+        goto clean_pcap;
+    }
     if (pcap_set_snaplen(scan_ctx.pcap_hdl, MAX_SNAPLEN) != 0) {
         goto clean_pcap;
     }
@@ -299,9 +302,6 @@ thread_routine(void *data) {
     while ((to_scan = scan_queue_dequeue(thread_ctx->scan_queue)) != NULL) {
         scan_ctx.dst.sin_addr = to_scan->resv_host->sockaddr.sin_addr;
         scan_ctx.dst.sin_port = to_scan->port;
-
-        if ((ntohl(scan_ctx.dst.sin_addr.s_addr) & LOOPBACK_NETMASK) == LOOPBACK_NETADDR) {
-        }
 
         for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
             if (thread_ctx->scans_to_perform[scan_type]) {
