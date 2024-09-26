@@ -6,12 +6,12 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/12 13:00:32 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/25 14:15:41 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 22:16:03 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef CHECKSUM_H
-#define CHECKSUM_H
+#ifndef NET_CHECKSUM_H
+#define NET_CHECKSUM_H
 
 #include <netinet/in.h>
 #include <netinet/ip.h>

@@ -6,11 +6,11 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/26 10:45:55 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 16:33:07 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 22:42:33 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#include "device.h"
+#include "net/device.h"
 
 #include <string.h>
 

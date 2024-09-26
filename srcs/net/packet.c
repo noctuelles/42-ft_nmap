@@ -6,13 +6,13 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/25 12:00:38 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 15:43:20 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 22:42:47 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #define _GNU_SOURCE
 
-#include "packet.h"
+#include "net/packet.h"
 
 #include <assert.h>
 #include <netinet/ip_icmp.h>
@@ -22,7 +22,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "checksum.h"
+#include "net/checksum.h"
 #include "utils/wrapper.h"
 
 static struct iphdr
@@ -77,40 +77,21 @@ send_icmp_echo_request(int sock, in_addr_t src_ip, in_addr_t dst_ip, uint16_t se
 }
 
 int
-send_tcp_packet(int sock, in_addr_t src_ip, in_port_t src_port, in_addr_t dst_ip, in_port_t dst_port, t_scan_type scan_type) {
+send_tcp_packet(int sock, in_addr_t src_ip, in_port_t src_port, in_addr_t dst_ip, in_port_t dst_port, uint8_t flags) {
     struct iphdr       iphdr    = {0};
     struct tcphdr      tcp      = {0};
     struct sockaddr_in destsock = {0};
     uint8_t            packet[IP_MAXPACKET];
 
     iphdr = construct_iphdr(src_ip, dst_ip, IPPROTO_TCP);
-    switch (scan_type) {
-        case STYPE_SYN:
-            tcp.syn = 1;
-            break;
-        case STYPE_NULL:
-            break;
-        case STYPE_FIN:
-            tcp.fin = 1;
-            break;
-        case STYPE_XMAS:
-            tcp.fin = 1;
-            tcp.psh = 1;
-            tcp.urg = 1;
-            break;
-        case STYPE_ACK:
-            tcp.ack = 1;
-            break;
-        default:
-            assert(0 && "Trying to send a TCP packet with a non-TCP scan type.");
-    }
 
-    tcp.source = htons(src_port);
-    tcp.dest   = htons(dst_port);
-    tcp.window = htons(1024);
-    tcp.seq    = rand();
-    tcp.doff   = 5;
-    tcp.check  = compute_tcphdr_checksum(iphdr.saddr, iphdr.daddr, tcp, NULL, 0);
+    tcp.source   = htons(src_port);
+    tcp.dest     = htons(dst_port);
+    tcp.window   = htons(1024);
+    tcp.seq      = rand();
+    tcp.doff     = 5;
+    tcp.th_flags = flags;
+    tcp.check    = compute_tcphdr_checksum(iphdr.saddr, iphdr.daddr, tcp, NULL, 0);
 
     memcpy(packet, &iphdr, sizeof(iphdr));
     memcpy(packet + sizeof(iphdr), &tcp, sizeof(tcp));

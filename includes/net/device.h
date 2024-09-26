@@ -6,12 +6,12 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/26 10:46:26 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 16:27:31 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 22:16:11 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef DEVICE_H
-#define DEVICE_H
+#ifndef NET_DEVICE_H
+#define NET_DEVICE_H
 
 #include "pcap.h"
 

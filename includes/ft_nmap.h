@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/07 14:29:13 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 17:36:53 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 22:35:41 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,7 +18,7 @@
 #include <time.h>
 
 #include "defines.h"
-#include "device.h"
+#include "net/device.h"
 #include "parsing/hosts.h"
 #include "scan_engine.h"
 

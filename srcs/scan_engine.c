@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 17:49:56 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 22:45:49 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,8 +26,8 @@
 #include <sys/select.h>
 #include <unistd.h>
 
-#include "checksum.h"
-#include "packet.h"
+#include "net/checksum.h"
+#include "net/packet.h"
 #include "utils/wrapper.h"
 
 #define FILTER_ICMP_COND                                                                                                                \
@@ -55,6 +55,24 @@ typedef struct s_scan_ctx {
     t_scan_type        type;
     t_port_status      port_status;
 } t_scan_ctx;
+
+static uint8_t
+get_tcp_flag(t_scan_type scan_type) {
+    switch (scan_type) {
+        case STYPE_SYN:
+            return (TH_SYN);
+        case STYPE_NULL:
+            return (0);
+        case STYPE_FIN:
+            return (TH_FIN);
+        case STYPE_XMAS:
+            return (TH_FIN | TH_PUSH | TH_URG);
+        case STYPE_ACK:
+            return (TH_ACK);
+        default:
+            return (0);
+    }
+}
 
 /**
  * @brief This routine is executed every time a packet is returned by pcap.
@@ -143,13 +161,8 @@ apply_pcap_filter(t_scan_ctx *scan_ctx) {
     (void)inet_ntop(AF_INET, &scan_ctx->src.sin_addr, presentation_src_ip, sizeof(presentation_src_ip));
     (void)inet_ntop(AF_INET, &scan_ctx->dst.sin_addr, presentation_dst_ip, sizeof(presentation_dst_ip));
 
-    if (IS_TCP_SCAN(scan_ctx->type)) {
-        (void)snprintf(filter, sizeof(filter), FILTER_TCP, presentation_src_ip, presentation_dst_ip, scan_ctx->dst.sin_port,
-                       scan_ctx->src.sin_port);
-    } else if (IS_UDP_SCAN(scan_ctx->type)) {
-        (void)snprintf(filter, sizeof(filter), FILTER_UDP, presentation_src_ip, presentation_dst_ip, scan_ctx->dst.sin_port,
-                       scan_ctx->src.sin_port);
-    }
+    (void)snprintf(filter, sizeof(filter), IS_TCP_SCAN(scan_ctx->type) ? FILTER_TCP : FILTER_UDP, presentation_src_ip, presentation_dst_ip,
+                   scan_ctx->dst.sin_port, scan_ctx->src.sin_port);
     if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, scan_ctx->netmask) == PCAP_ERROR) {
         goto clean;
     }
@@ -195,7 +208,7 @@ scan_port(t_scan_ctx *scan_ctx) {
         }
         if (IS_TCP_SCAN(scan_ctx->type)) {
             send_tcp_packet(scan_ctx->sending_sock, scan_ctx->src.sin_addr.s_addr, scan_ctx->src.sin_port, scan_ctx->dst.sin_addr.s_addr,
-                            scan_ctx->dst.sin_port, scan_ctx->type);
+                            scan_ctx->dst.sin_port, get_tcp_flag(scan_ctx->type));
         } else if (IS_UDP_SCAN(scan_ctx->type)) {
             assert(0 && "UDP scan not implemented yet");
         }
@@ -274,9 +287,6 @@ thread_routine(void *data) {
     if ((scan_ctx.pcap_hdl = Pcap_create(thread_ctx->device.name)) == NULL) {
         goto clean_fd;
     }
-    if (pcap_datalink(scan_ctx.pcap_hdl) != DLT_EN10MB) {
-        goto clean_pcap;
-    }
     if (pcap_set_snaplen(scan_ctx.pcap_hdl, MAX_SNAPLEN) != 0) {
         goto clean_pcap;
     }
@@ -293,6 +303,9 @@ thread_routine(void *data) {
         goto clean_pcap;
     }
     if (Pcap_activate(scan_ctx.pcap_hdl) != 0) {
+        goto clean_pcap;
+    }
+    if (pcap_datalink(scan_ctx.pcap_hdl) != DLT_EN10MB) {
         goto clean_pcap;
     }
 

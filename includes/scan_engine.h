@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:50:59 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 17:25:47 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 22:42:58 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,7 +16,7 @@
 #include <pthread.h>
 
 #include "defines.h"
-#include "device.h"
+#include "net/device.h"
 #include "queue.h"
 
 typedef struct s_scan_queue t_scan_queue;
