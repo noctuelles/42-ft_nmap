@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 15:38:23 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 17:05:18 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -49,8 +49,8 @@ static int g_thread_ko = -1;
 typedef struct s_scan_ctx {
     int                sending_sock;
     pcap_t            *pcap_hdl; /* Pcap handle that we use to sniff packets on. */
+    bpf_u_int32        netmask;
     struct sockaddr_in src;
-    struct sockaddr_in src_netmask;
     struct sockaddr_in dst;
     t_scan_type        type;
     t_port_status      port_status;
@@ -150,7 +150,7 @@ apply_pcap_filter(t_scan_ctx *scan_ctx) {
         (void)snprintf(filter, sizeof(filter), FILTER_UDP, presentation_src_ip, presentation_dst_ip, scan_ctx->dst.sin_port,
                        scan_ctx->src.sin_port);
     }
-    if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, scan_ctx->src_netmask.sin_addr.s_addr) == PCAP_ERROR) {
+    if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, scan_ctx->netmask) == PCAP_ERROR) {
         goto clean;
     }
     if (pcap_setfilter(scan_ctx->pcap_hdl, &bpf_prog) != 0) {
@@ -263,7 +263,6 @@ insert_port_status_into_results(const t_resv_host *host, t_scan_rslt *scan_rslts
 void *
 thread_routine(void *data) {
     t_thread_ctx            *thread_ctx     = data;
-    pcap_t                  *pcap_hdls[2]   = {NULL};
     t_scan_rslt             *host_scan_rslt = NULL;
     t_scan_ctx               scan_ctx       = {0};
     const t_scan_queue_data *to_scan        = NULL; /* Current scan element */
@@ -294,9 +293,9 @@ thread_routine(void *data) {
         goto clean_pcap;
     }
 
-    scan_ctx.src.sin_addr = thread_ctx->device.sockaddr.sin_addr;
+    scan_ctx.src.sin_addr = thread_ctx->device.addr;
     scan_ctx.src.sin_port = get_random_ephemeral_src_port();
-    scan_ctx.src_netmask  = thread_ctx->device.netmask;
+    scan_ctx.netmask      = thread_ctx->device.netmask;
     while ((to_scan = scan_queue_dequeue(thread_ctx->scan_queue)) != NULL) {
         scan_ctx.dst.sin_addr = to_scan->resv_host->sockaddr.sin_addr;
         scan_ctx.dst.sin_port = to_scan->port;

@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/07 14:56:17 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/18 10:54:44 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 16:13:28 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -95,6 +95,18 @@ Pcap_setfilter(pcap_t *p, struct bpf_program *fp) {
         error(0, 0, "pcap_setfilter: %s", pcap_geterr(p));
         return (1);
     }
+    return (0);
+}
+
+int
+Pcap_lookupnet(const char *device, bpf_u_int32 *netp, bpf_u_int32 *maskp, char *errbuff) {
+    char errbuf[PCAP_ERRBUF_SIZE];
+
+    if (pcap_lookupnet(device, netp, maskp, errbuff) == PCAP_ERROR) {
+        error(0, 0, "pcap_lookupnet: %s", errbuf);
+        return (PCAP_ERROR);
+    }
+
     return (0);
 }
 

@@ -6,13 +6,15 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/26 10:45:55 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 15:45:12 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 16:33:07 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "device.h"
 
 #include <string.h>
+
+#include "utils/wrapper.h"
 
 /**
  * @brief From a list of devices, get the first device that is up, running, and connected, thas has an IPv4 address.
@@ -30,17 +32,18 @@ get_suitable_interface(pcap_if_t *devs, t_device_info *device, bpf_u_int32 if_fl
             (dev->flags & PCAP_IF_CONNECTION_STATUS) == PCAP_IF_CONNECTION_STATUS_DISCONNECTED) {
             continue;
         }
-
         if (if_flags == 0 || dev->flags & if_flags) {
             for (struct pcap_addr *addr = dev->addresses; addr != NULL; addr = addr->next) {
                 if (addr->addr->sa_family == AF_INET) {
-                    memcpy(&device->sockaddr, addr->addr, sizeof(device->sockaddr));
-                    memcpy(&device->netmask, addr->netmask, sizeof(device->netmask));
+                    if (Pcap_lookupnet(dev->name, &device->netaddr, &device->netmask, NULL) == PCAP_ERROR) {
+                        return (-1);
+                    }
+                    device->addr = ((struct sockaddr_in *)addr->addr)->sin_addr;
                     device->name = strdup(dev->name);
-                    break;
+                    return (0);
                 }
             }
         }
     }
-    return (device->name == NULL ? -1 : 0);
+    return (-1);
 }

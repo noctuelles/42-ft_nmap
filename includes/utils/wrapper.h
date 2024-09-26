@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/07 15:53:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/18 10:55:15 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 16:13:39 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,6 +20,7 @@
 int     Pcap_findalldevs(pcap_if_t **alldevsp);
 pcap_t *Pcap_create(const char *device);
 pcap_t *Pcap_open_live(const char *device, int snaplen, int promisc, int to_ms);
+int     Pcap_lookupnet(const char *device, bpf_u_int32 *netp, bpf_u_int32 *maskp, char *errbuff);
 int     Pcap_compile(pcap_t *p, struct bpf_program *fp, const char *str, int optimize, bpf_u_int32 netmask);
 int     Pcap_setfilter(pcap_t *p, struct bpf_program *fp);
 int     Pcap_activate(pcap_t *p);
