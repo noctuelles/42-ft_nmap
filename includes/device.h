@@ -1,24 +1,26 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   parsing.h                                          :+:      :+:    :+:   */
+/*   device.h                                           :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/09/10 11:35:22 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 11:16:15 by plouvel          ###   ########.fr       */
+/*   Created: 2024/09/26 10:46:26 by plouvel           #+#    #+#             */
+/*   Updated: 2024/09/26 10:53:14 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef PARSING_H
-#define PARSING_H
+#ifndef DEVICE_H
+#define DEVICE_H
 
-#include <netinet/in.h>
+#include "pcap.h"
 
-#include "libft.h"
+typedef struct s_device_info {
+    char              *name;
+    struct sockaddr_in sockaddr;
+    struct sockaddr_in netmask;
+} t_device_info;
 
-t_list *parse_host_from_str(const char *str, bool *loopback);
-t_list *parse_host_from_file(const char *filepath, bool *loopback);
-void    free_resv_host(void *content);
+int get_suitable_interface(pcap_if_t *devs, t_device_info *device, bpf_u_int32 if_flags);
 
 #endif

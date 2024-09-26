@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:50:59 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/25 14:28:08 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 11:26:21 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,6 +16,9 @@
 #include "ft_nmap.h"
 
 typedef struct s_scan_queue t_scan_queue;
+
+#define LOOPBACK_NETADDR 0x7F000000
+#define LOOPBACK_NETMASK 0xFF000000
 
 #define IS_TCP_SCAN(scan_type) ((scan_type) >= STYPE_SYN && (scan_type) <= STYPE_ACK)
 #define IS_UDP_SCAN(scan_type) ((scan_type) == STYPE_UDP)
@@ -77,6 +80,11 @@ typedef enum e_port_status {
     PORT_UNFILTERED   = 1U << 3,
 } t_port_status;
 
+typedef enum e_thread_type {
+    HOST_LOCALHOST_THREAD,
+    HOST_REMOTE_THREAD,
+} t_thread_type;
+
 typedef struct s_scan_rslt {
     const t_resv_host *host; /* The scanned host. */
     t_port_status      ports[MAX_PORT_RANGE][NBR_AVAILABLE_SCANS];
@@ -84,16 +92,11 @@ typedef struct s_scan_rslt {
 
 typedef struct s_thread_ctx {
     t_available_scans_list scans_to_perform;
-
-    t_scan_rslt *scan_rslts;
-    size_t       nbr_hosts;
-
-    pthread_barrier_t *sync_barrier; /* This barrier synchronise all threads so that they starts together. */
-    t_scan_queue      *scan_queue;   /* Each thread picks a job (an IP:PORT pair) from this queue. */
-
-    struct sockaddr_in local_sockaddr; /* The local IP address of the local interface to sniff on. */
-    struct sockaddr_in local_netmask;
-    const char        *device; /* The name of the local interface to sniff on. */
+    t_device_info          devices[2];
+    t_scan_rslt           *scan_rslts;
+    size_t                 nbr_hosts;
+    t_scan_queue          *scan_queue; /* Each thread picks a job (an IP:PORT pair) from this queue. */
+    pthread_t              thread_id;
 } t_thread_ctx;
 
 extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
