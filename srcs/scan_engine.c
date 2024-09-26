@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 22:50:13 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 22:58:55 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -108,25 +108,25 @@ process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr
         switch (scan_ctx->type) {
             case STYPE_SYN:
                 if (tcphdr->syn && tcphdr->ack) {
-                    *port_status = PORT_OPEN;
+                    scan_ctx->port_status = PORT_OPEN;
                 } else if (tcphdr->rst) {
-                    *port_status = PORT_CLOSED;
+                    scan_ctx->port_status = PORT_CLOSED;
                 }
                 break;
             case STYPE_NULL:
             case STYPE_FIN:
             case STYPE_XMAS:
                 if (tcphdr->rst) {
-                    *port_status = PORT_CLOSED;
+                    scan_ctx->port_status = PORT_CLOSED;
                 }
                 break;
             case STYPE_ACK:
                 if (tcphdr->rst) {
-                    *port_status = PORT_UNFILTERED;
+                    scan_ctx->port_status = PORT_UNFILTERED;
                 }
                 break;
             default:
-                *port_status = PORT_UNDETERMINED;
+                scan_ctx->port_status = PORT_UNDETERMINED;
         }
     } else if (iphdr->ip_p == IPPROTO_ICMP) {
         icmphdr    = (struct icmphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
@@ -165,13 +165,13 @@ process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr
         if (icmphdr->type == ICMP_DEST_UNREACH) {
             if (icmphdr->code == ICMP_PORT_UNREACH) {
                 if (IS_UDP_SCAN(scan_ctx->type)) {
-                    scan_ctx->port_status = CLOSED;
+                    scan_ctx->port_status = PORT_CLOSED;
                 }
             }
 
             if (icmphdr->code == ICMP_HOST_UNREACH || icmphdr->code == ICMP_PROT_UNREACH || icmphdr->code == ICMP_PORT_UNREACH ||
                 icmphdr->code == ICMP_NET_ANO || icmphdr->code == ICMP_HOST_ANO || icmphdr->code == ICMP_PKT_FILTERED) {
-                scan_ctx->port_status = FILTERED;
+                scan_ctx->port_status = PORT_FILTERED;
             } else {
                 return (-1);
             }
@@ -181,10 +181,10 @@ process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr
     } else if (iphdr->ip_p == IPPROTO_UDP) {
         switch (scan_ctx->type) {
             case STYPE_UDP:
-                *port_status = PORT_OPEN;
+                scan_ctx->port_status = PORT_OPEN;
                 break;
             default:
-                *port_status = PORT_UNDETERMINED;
+                scan_ctx->port_status = PORT_UNDETERMINED;
         }
     }
 
@@ -306,21 +306,6 @@ scan_port(t_scan_ctx *scan_ctx) {
     }
 
     return (0);
-}
-
-static void
-insert_port_status_into_results(const t_resv_host *host, t_scan_rslt *scan_rslts, size_t nbr_hosts, in_port_t port, t_scan_type scan_type,
-                                t_port_status port_status) {
-    t_scan_rslt *scan_rslt = NULL;
-
-    for (size_t i = 0; i < nbr_hosts; i++) {
-        if (scan_rslts[i].host == host) {
-            scan_rslt = &scan_rslts[i];
-            break;
-        }
-    }
-
-    scan_rslt->ports[port][scan_type] = port_status;
 }
 
 void *
