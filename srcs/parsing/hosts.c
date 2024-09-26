@@ -1,24 +1,24 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   ip.c                                               :+:      :+:    :+:   */
+/*   hosts.c                                            :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:40 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 11:15:51 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 15:42:36 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+
+#include "parsing/hosts.h"
 
 #include <errno.h>
 #include <netdb.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "ft_nmap.h"
 #include "libft.h"
-#include "parsing.h"
-#include "wrapper.h"
+#include "utils/wrapper.h"
 
 static t_list *
 new_resv_host_node(struct addrinfo *res) {

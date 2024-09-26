@@ -6,7 +6,7 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/25 14:29:55 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/26 15:42:29 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -17,14 +17,15 @@ SRCS_DIR=srcs
 OBJS_DIR=objs
 INCS_DIR=includes
 
-SRCS=main.c \
-    parsing/ip.c \
-	parsing/opts.c \
-	utils/wrapper.c \
-	packet.c \
-	scan_engine.c \
-	queue.c \
-	checksum.c
+SRCS=parsing/hosts.c \
+	 parsing/opts.c \
+	 utils/wrapper.c \
+	 checksum.c \
+	 device.c \
+	 main.c \
+	 packet.c \
+	 queue.c \
+	 scan_engine.c
 
 OBJS=$(addprefix $(OBJS_DIR)/, $(SRCS:.c=.o))
 

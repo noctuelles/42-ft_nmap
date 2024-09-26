@@ -6,24 +6,20 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:50:59 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 11:26:21 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 15:42:58 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #ifndef SCAN_ENGINE_H
 #define SCAN_ENGINE_H
 
-#include "ft_nmap.h"
+#include <pthread.h>
+
+#include "defines.h"
+#include "device.h"
+#include "queue.h"
 
 typedef struct s_scan_queue t_scan_queue;
-
-#define LOOPBACK_NETADDR 0x7F000000
-#define LOOPBACK_NETMASK 0xFF000000
-
-#define IS_TCP_SCAN(scan_type) ((scan_type) >= STYPE_SYN && (scan_type) <= STYPE_ACK)
-#define IS_UDP_SCAN(scan_type) ((scan_type) == STYPE_UDP)
-
-extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
 
 /*
     The port status differs from each scan type. The program interpret a port status in function of the probe response. This is a summary
@@ -72,6 +68,11 @@ extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
             +-----------------------------------------------------------------+----------------+
 */
 
+typedef bool t_available_scans_list[NBR_AVAILABLE_SCANS];
+typedef enum e_scan_type { /* TCP Scan */ STYPE_SYN, STYPE_NULL, STYPE_FIN, STYPE_XMAS, STYPE_ACK, /* UDP Scan */ STYPE_UDP } t_scan_type;
+
+extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
+
 typedef enum e_port_status {
     PORT_UNDETERMINED = 0,
     PORT_OPEN         = 1U,
@@ -80,26 +81,24 @@ typedef enum e_port_status {
     PORT_UNFILTERED   = 1U << 3,
 } t_port_status;
 
-typedef enum e_thread_type {
-    HOST_LOCALHOST_THREAD,
-    HOST_REMOTE_THREAD,
-} t_thread_type;
-
 typedef struct s_scan_rslt {
     const t_resv_host *host; /* The scanned host. */
     t_port_status      ports[MAX_PORT_RANGE][NBR_AVAILABLE_SCANS];
 } t_scan_rslt;
 
+typedef enum e_thread_type {
+    HOST_LOCALHOST_THREAD,
+    HOST_REMOTE_THREAD,
+} t_thread_type;
+
 typedef struct s_thread_ctx {
     t_available_scans_list scans_to_perform;
-    t_device_info          devices[2];
-    t_scan_rslt           *scan_rslts;
+    t_device_info          device;
     size_t                 nbr_hosts;
+    t_scan_rslt           *scan_rslts;
     t_scan_queue          *scan_queue; /* Each thread picks a job (an IP:PORT pair) from this queue. */
     pthread_t              thread_id;
 } t_thread_ctx;
-
-extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
 
 void *thread_routine(void *data);
 

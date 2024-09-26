@@ -6,11 +6,13 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/26 10:45:55 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 10:53:02 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 15:45:12 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "device.h"
+
+#include <string.h>
 
 /**
  * @brief From a list of devices, get the first device that is up, running, and connected, thas has an IPv4 address.

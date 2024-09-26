@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 11:24:48 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 15:38:23 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,8 +28,7 @@
 
 #include "checksum.h"
 #include "packet.h"
-#include "queue.h"
-#include "wrapper.h"
+#include "utils/wrapper.h"
 
 #define FILTER_ICMP_COND                                                                                                                \
     "icmp[0] == 3 and (icmp[1] == 0 or icmp[1] == 2 or icmp[1] == 3 or icmp[1] == 9 or icmp[1] == 10 or icmp[1] == 13) and icmp[8] == " \
@@ -273,7 +272,7 @@ thread_routine(void *data) {
     if ((scan_ctx.sending_sock = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
         return (&g_thread_ko);
     }
-    if ((scan_ctx.pcap_hdl = Pcap_create(thread_ctx->device)) == NULL) {
+    if ((scan_ctx.pcap_hdl = Pcap_create(thread_ctx->device.name)) == NULL) {
         goto clean_fd;
     }
     if (pcap_set_snaplen(scan_ctx.pcap_hdl, MAX_SNAPLEN) != 0) {
@@ -295,16 +294,14 @@ thread_routine(void *data) {
         goto clean_pcap;
     }
 
-    scan_ctx.src.sin_addr = thread_ctx->local_sockaddr.sin_addr;
+    scan_ctx.src.sin_addr = thread_ctx->device.sockaddr.sin_addr;
     scan_ctx.src.sin_port = get_random_ephemeral_src_port();
-    scan_ctx.src_netmask  = thread_ctx->local_netmask;
+    scan_ctx.src_netmask  = thread_ctx->device.netmask;
     while ((to_scan = scan_queue_dequeue(thread_ctx->scan_queue)) != NULL) {
         scan_ctx.dst.sin_addr = to_scan->resv_host->sockaddr.sin_addr;
         scan_ctx.dst.sin_port = to_scan->port;
 
         if ((ntohl(scan_ctx.dst.sin_addr.s_addr) & LOOPBACK_NETMASK) == LOOPBACK_NETADDR) {
-            // puts("Loopback address detected. Skipping...");
-            // continue;
         }
 
         for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {

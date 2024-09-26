@@ -6,11 +6,12 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/25 12:00:38 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/25 14:31:03 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 15:43:20 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #define _GNU_SOURCE
+
 #include "packet.h"
 
 #include <assert.h>
@@ -22,8 +23,7 @@
 #include <unistd.h>
 
 #include "checksum.h"
-#include "ft_nmap.h"
-#include "wrapper.h"
+#include "utils/wrapper.h"
 
 static struct iphdr
 construct_iphdr(in_addr_t src_ip, in_addr_t dst_ip, uint8_t protocol) {

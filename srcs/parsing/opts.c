@@ -6,9 +6,11 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/21 12:41:21 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 15:21:04 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
+
+#include "parsing/opts.h"
 
 #include <errno.h>
 #include <error.h>
@@ -18,10 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ft_nmap.h"
-#include "opts_parsing.h"
-#include "scan_engine.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 static struct option g_long_options[] = {{"help", no_argument, NULL, 0},
                                          {"ports", required_argument, NULL, 'p'},
@@ -30,6 +29,8 @@ static struct option g_long_options[] = {{"help", no_argument, NULL, 0},
                                          {"scan", required_argument, NULL, 's'},
                                          {"file", required_argument, NULL, 'f'},
                                          {NULL, 0, NULL, 0}};
+
+t_opts g_opts = {0}; /* Program options */
 
 /**
  * @brief Parse the scan type from the input string and set the corresponding
