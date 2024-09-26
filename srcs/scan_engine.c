@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/21 23:28:33 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 22:50:13 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,9 +26,9 @@
 #include <sys/select.h>
 #include <unistd.h>
 
-#include "checksum.h"
-#include "queue.h"
-#include "wrapper.h"
+#include "net/checksum.h"
+#include "net/packet.h"
+#include "utils/wrapper.h"
 
 #define FILTER_ICMP_COND "icmp"
 #define FILTER_TCP_COND "tcp and (src host %s) and (src port %u) and (dst port %u)"
@@ -47,112 +47,29 @@ static int g_thread_ko = -1;
 typedef struct s_scan_ctx {
     int                sending_sock;
     pcap_t            *pcap_hdl; /* Pcap handle that we use to sniff packets on. */
+    bpf_u_int32        netmask;
     struct sockaddr_in src;
-    struct sockaddr_in src_netmask;
     struct sockaddr_in dst;
     t_scan_type        type;
     t_port_status      port_status;
 } t_scan_ctx;
 
-static int
-send_tcp_packet(int sock_raw_fd, in_addr_t src_ip, in_port_t src_port, in_addr_t dest_ip, in_port_t dest_port, t_scan_type scan_type) {
-    struct ip          ip       = {0};
-    struct tcphdr      tcp      = {0};
-    struct sockaddr_in destsock = {0};
-    uint8_t            packet[IP_MAXPACKET];
-
-    ip.ip_src.s_addr = src_ip;
-    ip.ip_dst.s_addr = dest_ip;
-    ip.ip_off        = 0;
-    ip.ip_sum        = 0; /* Always filled by the kernel. */
-    ip.ip_len        = 0; /* Always filled by the kernel. */
-    ip.ip_id         = 0; /* Filled by the kernel when equals to 0. */
-    ip.ip_hl         = 5; /* Header length */
-    ip.ip_tos        = 0;
-    ip.ip_ttl        = 64;
-    ip.ip_p          = IPPROTO_TCP;
-    ip.ip_v          = IPVERSION;
-
+static uint8_t
+get_tcp_flag(t_scan_type scan_type) {
     switch (scan_type) {
         case STYPE_SYN:
-            tcp.syn = 1;
-            break;
+            return (TH_SYN);
         case STYPE_NULL:
-            break;
+            return (0);
         case STYPE_FIN:
-            tcp.fin = 1;
-            break;
+            return (TH_FIN);
         case STYPE_XMAS:
-            tcp.fin = 1;
-            tcp.psh = 1;
-            tcp.urg = 1;
-            break;
+            return (TH_FIN | TH_PUSH | TH_URG);
         case STYPE_ACK:
-            tcp.ack = 1;
-            break;
+            return (TH_ACK);
         default:
-            assert(0 && "Trying to send a TCP packet with a non-TCP scan type.");
+            return (0);
     }
-
-    tcp.source = htons(src_port);
-    tcp.dest   = htons(dest_port);
-    tcp.window = htons(1024);
-    tcp.seq    = rand();
-    tcp.doff   = 5;
-
-    tcp.check = compute_tcphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, tcp, NULL, 0);
-    memcpy(packet, &ip, sizeof(ip));
-    memcpy(packet + sizeof(ip), &tcp, sizeof(tcp));
-
-    destsock.sin_addr.s_addr = dest_ip;
-    destsock.sin_port        = dest_port;
-    if (Sendto(sock_raw_fd, packet, sizeof(ip) + sizeof(tcp), 0, (const struct sockaddr *)&destsock, sizeof(destsock)) == -1) {
-        return (-1);
-    }
-    return (0);
-}
-
-static int
-send_udp_packet(int sock_raw_fd, in_addr_t src_ip, in_port_t src_port, in_addr_t dest_ip, in_port_t dest_port) {
-    struct ip          ip       = {0};
-    struct udphdr      udp      = {0};
-    struct sockaddr_in destsock = {0};
-    uint8_t            packet[IP_MAXPACKET];
-
-    ip.ip_src.s_addr = src_ip;
-    ip.ip_dst.s_addr = src_port;
-    ip.ip_off        = 0;
-    ip.ip_sum        = 0; /* Always filled by the kernel. */
-    ip.ip_len        = 0; /* Always filled by the kernel. */
-    ip.ip_id         = 0; /* Filled by the kernel when equals to 0. */
-    ip.ip_hl         = 5; /* Header length */
-    ip.ip_tos        = 0;
-    ip.ip_ttl        = 64;
-    ip.ip_p          = IPPROTO_UDP;
-    ip.ip_v          = IPVERSION;
-
-    const uint16_t ephemeral_port_start = 49152;
-    const uint16_t ephemeral_port_end   = 65535;
-
-    udp.source = htons(src_port);
-    udp.dest   = htons(dest_port);
-    udp.len    = htons(sizeof(udp));
-    udp.check  = compute_udphdr_checksum(ip.ip_src.s_addr, ip.ip_dst.s_addr, udp, NULL, 0);
-
-    memcpy(packet, &ip, sizeof(ip));
-    memcpy(packet + sizeof(ip), &udp, sizeof(udp));
-
-    destsock.sin_addr.s_addr = dest_ip;
-    destsock.sin_port        = dest_port;
-    if (Sendto(sock_raw_fd, packet, sizeof(ip) + sizeof(udp), 0, (const struct sockaddr *)&destsock, sizeof(destsock)) == -1) {
-        return (-1);
-    }
-    return (0);
-}
-
-static uint16_t
-get_random_ephemeral_src_port(void) {
-    return (rand() % (65535 - 49152 + 1) + 49152);
 }
 
 /**
@@ -191,25 +108,25 @@ process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr
         switch (scan_ctx->type) {
             case STYPE_SYN:
                 if (tcphdr->syn && tcphdr->ack) {
-                    scan_ctx->port_status = OPEN;
+                    *port_status = PORT_OPEN;
                 } else if (tcphdr->rst) {
-                    scan_ctx->port_status = CLOSED;
+                    *port_status = PORT_CLOSED;
                 }
                 break;
             case STYPE_NULL:
             case STYPE_FIN:
             case STYPE_XMAS:
                 if (tcphdr->rst) {
-                    scan_ctx->port_status = CLOSED;
+                    *port_status = PORT_CLOSED;
                 }
                 break;
             case STYPE_ACK:
                 if (tcphdr->rst) {
-                    scan_ctx->port_status = UNFILTERED;
+                    *port_status = PORT_UNFILTERED;
                 }
                 break;
             default:
-                scan_ctx->port_status = UNDETERMINED;
+                *port_status = PORT_UNDETERMINED;
         }
     } else if (iphdr->ip_p == IPPROTO_ICMP) {
         icmphdr    = (struct icmphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
@@ -264,10 +181,10 @@ process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr
     } else if (iphdr->ip_p == IPPROTO_UDP) {
         switch (scan_ctx->type) {
             case STYPE_UDP:
-                scan_ctx->port_status = OPEN;
+                *port_status = PORT_OPEN;
                 break;
             default:
-                scan_ctx->port_status = UNDETERMINED;
+                *port_status = PORT_UNDETERMINED;
         }
     }
 
@@ -291,14 +208,9 @@ apply_pcap_filter(t_scan_ctx *scan_ctx) {
     (void)inet_ntop(AF_INET, &scan_ctx->src.sin_addr, presentation_src_ip, sizeof(presentation_src_ip));
     (void)inet_ntop(AF_INET, &scan_ctx->dst.sin_addr, presentation_dst_ip, sizeof(presentation_dst_ip));
 
-    if (IS_TCP_SCAN(scan_ctx->type)) {
-        (void)snprintf(filter, sizeof(filter), FILTER_TCP, presentation_src_ip, presentation_dst_ip, scan_ctx->dst.sin_port,
-                       scan_ctx->src.sin_port);
-    } else if (IS_UDP_SCAN(scan_ctx->type)) {
-        (void)snprintf(filter, sizeof(filter), FILTER_UDP, presentation_src_ip, presentation_dst_ip, scan_ctx->dst.sin_port,
-                       scan_ctx->src.sin_port);
-    }
-    if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, scan_ctx->src_netmask.sin_addr.s_addr) == PCAP_ERROR) {
+    (void)snprintf(filter, sizeof(filter), IS_TCP_SCAN(scan_ctx->type) ? FILTER_TCP : FILTER_UDP, presentation_src_ip, presentation_dst_ip,
+                   scan_ctx->dst.sin_port, scan_ctx->src.sin_port);
+    if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, scan_ctx->netmask) == PCAP_ERROR) {
         goto clean;
     }
     if (pcap_setfilter(scan_ctx->pcap_hdl, &bpf_prog) != 0) {
@@ -342,10 +254,8 @@ scan_port(t_scan_ctx *scan_ctx) {
             return (-1);
         }
         if (IS_TCP_SCAN(scan_ctx->type)) {
-            if (send_tcp_packet(scan_ctx->sending_sock, scan_ctx->src.sin_addr.s_addr, scan_ctx->src.sin_port,
-                                scan_ctx->dst.sin_addr.s_addr, scan_ctx->dst.sin_port, scan_ctx->type) == -1) {
-                return (-1);
-            }
+            send_tcp_packet(scan_ctx->sending_sock, scan_ctx->src.sin_addr.s_addr, scan_ctx->src.sin_port, scan_ctx->dst.sin_addr.s_addr,
+                            scan_ctx->dst.sin_port, get_tcp_flag(scan_ctx->type));
         } else if (IS_UDP_SCAN(scan_ctx->type)) {
             if (send_udp_packet(scan_ctx->sending_sock, scan_ctx->src.sin_addr.s_addr, scan_ctx->src.sin_port,
                                 scan_ctx->dst.sin_addr.s_addr, scan_ctx->dst.sin_port) == -1) {
@@ -376,22 +286,22 @@ scan_port(t_scan_ctx *scan_ctx) {
         }
     }
 
-    /* At this point, if the port status is UNDETERMINED, it means that we didn't receive any response to our probe even after
+    /* At this point, if the port status is PORT_UNDETERMINED, it means that we didn't receive any response to our probe even after
      * retransmissions. */
-    if (scan_ctx->port_status == UNDETERMINED) {
+    if (scan_ctx->port_status == PORT_UNDETERMINED) {
         switch (scan_ctx->type) {
             case STYPE_SYN:
-                scan_ctx->port_status = FILTERED;
+                scan_ctx->port_status = PORT_FILTERED;
                 break;
             case STYPE_NULL:
             case STYPE_FIN:
             case STYPE_XMAS:
-                scan_ctx->port_status = OPEN | FILTERED;
+                scan_ctx->port_status = PORT_OPEN | PORT_FILTERED;
                 break;
             case STYPE_ACK:
-                scan_ctx->port_status = FILTERED;
+                scan_ctx->port_status = PORT_FILTERED;
             case STYPE_UDP:
-                scan_ctx->port_status = OPEN | FILTERED;
+                scan_ctx->port_status = PORT_OPEN | PORT_FILTERED;
         }
     }
 
@@ -424,7 +334,7 @@ thread_routine(void *data) {
     if ((scan_ctx.sending_sock = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
         return (&g_thread_ko);
     }
-    if ((scan_ctx.pcap_hdl = Pcap_create(thread_ctx->device)) == NULL) {
+    if ((scan_ctx.pcap_hdl = Pcap_create(thread_ctx->device.name)) == NULL) {
         goto clean_fd;
     }
     if (pcap_set_snaplen(scan_ctx.pcap_hdl, MAX_SNAPLEN) != 0) {
@@ -445,20 +355,22 @@ thread_routine(void *data) {
     if (Pcap_activate(scan_ctx.pcap_hdl) != 0) {
         goto clean_pcap;
     }
+    if (pcap_datalink(scan_ctx.pcap_hdl) != DLT_EN10MB) {
+        goto clean_pcap;
+    }
 
-    pthread_barrier_wait(thread_ctx->sync_barrier);
-
-    scan_ctx.src.sin_addr = thread_ctx->local_sockaddr.sin_addr;
+    scan_ctx.src.sin_addr = thread_ctx->device.addr;
     scan_ctx.src.sin_port = get_random_ephemeral_src_port();
-    scan_ctx.src_netmask  = thread_ctx->local_netmask;
+    scan_ctx.netmask      = thread_ctx->device.netmask;
     while ((to_scan = scan_queue_dequeue(thread_ctx->scan_queue)) != NULL) {
         scan_ctx.dst.sin_addr = to_scan->resv_host->sockaddr.sin_addr;
         scan_ctx.dst.sin_port = to_scan->port;
+
         for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
             if (thread_ctx->scans_to_perform[scan_type]) {
                 host_scan_rslt       = NULL;
                 scan_ctx.type        = scan_type;
-                scan_ctx.port_status = UNDETERMINED;
+                scan_ctx.port_status = PORT_UNDETERMINED;
 
                 if (scan_port(&scan_ctx) != 0) {
                     goto clean_pcap;

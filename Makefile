@@ -6,7 +6,7 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/09/18 19:03:38 by plouvel          ###   ########.fr        #
+#    Updated: 2024/09/26 22:43:06 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -17,13 +17,16 @@ SRCS_DIR=srcs
 OBJS_DIR=objs
 INCS_DIR=includes
 
-SRCS=main.c \
-    parsing/ip.c \
-	parsing/opts.c \
-	utils/wrapper.c \
-	scan_engine.c \
-	queue.c \
-	checksum.c
+SRCS=parsing/hosts.c \
+	 parsing/opts.c \
+	 utils/wrapper.c \
+	 net/checksum.c \
+	 net/device.c \
+	 net/packet.c \
+	 print.c \
+	 main.c \
+	 queue.c \
+	 scan_engine.c
 
 OBJS=$(addprefix $(OBJS_DIR)/, $(SRCS:.c=.o))
 
@@ -39,7 +42,7 @@ all: $(NAME)
 
 $(NAME): $(OBJS) $(LIBPCAP) $(LIBFT)
 	$(CC) -o $(NAME) $(OBJS) -L $(LIBPCAP_DIR) -lpcap -L $(LIBFT_DIR) -lft
-	sudo setcap cap_net_raw,cap_net_admin=eip $(NAME)
+#sudo setcap cap_net_raw,cap_net_admin=eip $(NAME)
 
 $(OBJS_DIR)/%.o: $(SRCS_DIR)/%.c
 	@mkdir -p $(dir $@)

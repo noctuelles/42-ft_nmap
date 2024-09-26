@@ -1,21 +1,22 @@
 /* ************************************************************************** */
 /*                                                                            */
 /*                                                        :::      ::::::::   */
-/*   opts_parsing.h                                     :+:      :+:    :+:   */
+/*   opts.h                                             :+:      :+:    :+:   */
 /*                                                    +:+ +:+         +:+     */
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/06 22:50:51 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 17:14:34 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 15:39:03 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
-#ifndef OPTS_PARSING_H
-#define OPTS_PARSING_H
+#ifndef PARSING_OPTS_H
+#define PARSING_OPTS_H
 
-#include <scan_engine.h>
 #include <stdbool.h>
 #include <stdint.h>
+
+#include "scan_engine.h"
 
 typedef struct s_opts {
     int                    help;
@@ -36,6 +37,6 @@ typedef struct s_opts {
  */
 int parse_opts(int argc, char **argv, t_opts *opts);
 
-extern const char *g_available_scan_types[NBR_AVAILABLE_SCANS];
+extern t_opts g_opts;
 
 #endif

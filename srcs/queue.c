@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/13 11:29:26 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/20 13:30:30 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/26 17:07:04 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,8 +16,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-#include "parsing.h"
-#include "wrapper.h"
+#include "utils/wrapper.h"
 
 typedef struct s_scan_queue {
     t_scan_queue_data *data;
