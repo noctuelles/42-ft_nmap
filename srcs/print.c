@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 15:52:00 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 15:54:23 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -87,14 +87,14 @@ print_results(const t_ft_nmap *ft_nmap) {
     char               buffer[256];
     size_t             n_print = 0;
 
-    printf("done in about %lu seconds.\n", ft_nmap->scan_end.tv_sec - ft_nmap->scan_start.tv_sec);
+    printf("done in about %lu seconds.\n\n", ft_nmap->scan_end.tv_sec - ft_nmap->scan_start.tv_sec);
 
     for (size_t i = 0; i < ft_nmap->nbr_hosts; i++) {
         n_print   = 0;
         scan_rslt = &ft_nmap->scan_rslts[i];
 
         (void)inet_ntop(AF_INET, &scan_rslt->host->sockaddr.sin_addr, presentation_ip, sizeof(presentation_ip));
-        printf("Scan result for %s (%s)\n", scan_rslt->host->hostname, presentation_ip);
+        printf("Scan result for %s (%s)\n\n", scan_rslt->host->hostname, presentation_ip);
 
         snprintf(buffer, sizeof(buffer), "Port");
         n_print += printf("%-8s", buffer);
@@ -132,6 +132,9 @@ print_results(const t_ft_nmap *ft_nmap) {
             }
             printf("%s", buffer);
 
+            printf("\n");
+        }
+        if (i + 1 < ft_nmap->nbr_hosts) {
             printf("\n");
         }
     }
