@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 15:46:28 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 15:52:00 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -119,12 +119,18 @@ print_results(const t_ft_nmap *ft_nmap) {
                 }
             }
             if ((servent = getservbyport(htons(port), "tcp")) != NULL) {
-                printf("%s", servent->s_name);
-            } else if ((servent = getservbyport(htons(port), "udp")) != NULL) {
-                printf("%s", servent->s_name);
+                snprintf(buffer, sizeof(buffer), "%s(tcp) ", servent->s_name);
             } else {
-                printf("unknown");
+                snprintf(buffer, sizeof(buffer), "unknown(tcp) ");
             }
+            printf("%-13s", buffer);
+
+            if ((servent = getservbyport(htons(port), "udp")) != NULL) {
+                snprintf(buffer, sizeof(buffer), "%s(udp) ", servent->s_name);
+            } else {
+                snprintf(buffer, sizeof(buffer), "unknown(udp) ");
+            }
+            printf("%s", buffer);
 
             printf("\n");
         }
