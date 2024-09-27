@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 15:40:20 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 15:46:28 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -111,7 +111,7 @@ print_results(const t_ft_nmap *ft_nmap) {
         }
         printf("\n");
 
-        for (in_port_t port = g_opts.port_range[0]; port < g_opts.port_range[1]; port++) {
+        for (in_port_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
             printf("%-8u", port);
             for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
                 if (g_opts.scans_to_perform[scan_type]) {
