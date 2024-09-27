@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 15:44:31 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 23:29:12 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,6 +28,7 @@
 
 #include "net/checksum.h"
 #include "net/packet.h"
+#include "pcap/sll.h"
 #include "utils/wrapper.h"
 
 #define FILTER_ICMP_COND "icmp"
@@ -94,7 +95,7 @@ process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr
     struct tcphdr *orig_tcphdr    = NULL;
     struct udphdr *orig_udphdr    = NULL;
 
-    iphdr = (struct ip *)(pkt + sizeof(struct ethhdr));
+    iphdr = (struct ip *)(pkt + sizeof(struct sll_header));
 
     ip_hdrlen = iphdr->ip_hl << 2;
 
@@ -103,7 +104,7 @@ process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr
     }
 
     if (iphdr->ip_p == IPPROTO_TCP) {
-        tcphdr = (struct tcphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
+        tcphdr = (struct tcphdr *)((u_char *)iphdr + ip_hdrlen);
 
         switch (scan_ctx->type) {
             case STYPE_SYN:
@@ -129,7 +130,7 @@ process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr
                 scan_ctx->port_status = PORT_UNDETERMINED;
         }
     } else if (iphdr->ip_p == IPPROTO_ICMP) {
-        icmphdr    = (struct icmphdr *)(pkt + sizeof(struct ethhdr) + ip_hdrlen);
+        icmphdr    = (struct icmphdr *)((u_char *)iphdr + ip_hdrlen);
         orig_iphdr = (struct ip *)((u_char *)(icmphdr) + sizeof(struct icmphdr));
 
         orig_ip_hdrlen = orig_iphdr->ip_hl << 2;
@@ -166,6 +167,7 @@ process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr
             if (icmphdr->code == ICMP_PORT_UNREACH) {
                 if (IS_UDP_SCAN(scan_ctx->type)) {
                     scan_ctx->port_status = PORT_CLOSED;
+                    return (0);
                 }
             }
 
@@ -319,7 +321,7 @@ thread_routine(void *data) {
     if ((scan_ctx.sending_sock = Socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
         return (&g_thread_ko);
     }
-    if ((scan_ctx.pcap_hdl = Pcap_create(thread_ctx->device.name)) == NULL) {
+    if ((scan_ctx.pcap_hdl = Pcap_create(IFANY)) == NULL) {
         goto clean_fd;
     }
     if (pcap_set_snaplen(scan_ctx.pcap_hdl, MAX_SNAPLEN) != 0) {
@@ -340,7 +342,8 @@ thread_routine(void *data) {
     if (Pcap_activate(scan_ctx.pcap_hdl) != 0) {
         goto clean_pcap;
     }
-    if (pcap_datalink(scan_ctx.pcap_hdl) != DLT_EN10MB) {
+    /* */
+    if (pcap_datalink(scan_ctx.pcap_hdl) != DLT_LINUX_SLL) {
         goto clean_pcap;
     }
 

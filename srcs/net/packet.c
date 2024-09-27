@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/25 12:00:38 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 22:42:47 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 23:25:37 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -110,6 +110,8 @@ send_udp_packet(int sock_raw_fd, in_addr_t src_ip, in_port_t src_port, in_addr_t
     struct udphdr      udphdr   = {0};
     struct sockaddr_in destsock = {0};
     uint8_t            packet[IP_MAXPACKET];
+
+    iphdr = construct_iphdr(src_ip, dst_ip, IPPROTO_UDP);
 
     udphdr.source = htons(src_port);
     udphdr.dest   = htons(dst_port);

@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/26 15:32:50 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 15:36:43 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 23:17:36 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -33,6 +33,8 @@
 
 #define LOOPBACK_NETADDR 0x7F000000
 #define LOOPBACK_NETMASK 0xFF000000
+
+#define IFANY "any"
 
 #define IS_TCP_SCAN(scan_type) ((scan_type) >= STYPE_SYN && (scan_type) <= STYPE_ACK)
 #define IS_UDP_SCAN(scan_type) ((scan_type) == STYPE_UDP)
