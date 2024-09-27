@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 14:59:22 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 15:31:23 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -56,48 +56,75 @@ print_intro(const t_ft_nmap *ft_nmap) {
     fflush(stdout);
 }
 
+// static void
+// print_results(const t_ft_nmap *ft_nmap, const char *proto) {}
+
+const char *
+get_port_status_str(t_port_status port_status) {
+    switch (port_status) {
+        case PORT_UNDETERMINED:
+            return ("undetermined");
+        case PORT_OPEN:
+            return ("open");
+        case PORT_CLOSED:
+            return ("closed");
+        case PORT_FILTERED:
+            return ("filtered");
+        case PORT_UNFILTERED:
+            return ("unfiltered");
+        case PORT_OPEN | PORT_FILTERED:
+            return ("open|filtered");
+        default:
+            return ("unknown");
+    }
+}
+
 void
 print_results(const t_ft_nmap *ft_nmap) {
     const t_scan_rslt *scan_rslt = NULL;
     char               presentation_ip[INET_ADDRSTRLEN];
     struct servent    *servent = NULL;
+    char               buffer[256];
+    size_t             n_print = 0;
 
     printf("done in about %lu seconds.\n", ft_nmap->scan_end.tv_sec - ft_nmap->scan_start.tv_sec);
 
-    // for (size_t i = 0; i < ft_nmap->nbr_hosts; i++) {
-    //     scan_rslt = &ft_nmap->scan_rslts[i];
+    for (size_t i = 0; i < ft_nmap->nbr_hosts; i++) {
+        scan_rslt = &ft_nmap->scan_rslts[i];
+        (void)inet_ntop(AF_INET, &scan_rslt->host->sockaddr.sin_addr, presentation_ip, sizeof(presentation_ip));
+        printf("Scan result for %s (%s)\n", scan_rslt->host->hostname, presentation_ip);
 
-    //     (void)inet_ntop(AF_INET, &scan_rslt->host->sockaddr.sin_addr, presentation_ip, sizeof(presentation_ip));
+        snprintf(buffer, sizeof(buffer), "Port");
+        n_print += printf("%-8s", buffer);
+        for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
+            if (g_opts.scans_to_perform[scan_type]) {
+                snprintf(buffer, sizeof(buffer), "%s", g_available_scan_types[scan_type]);
+                n_print += printf("%-20s", buffer);
+            }
+        }
+        n_print += printf("Service");
+        printf("\n");
+        for (size_t n = 0; n < n_print; n++) {
+            printf("-");
+        }
+        printf("\n");
 
-    //     printf("Scan result for %s (%s)\n", scan_rslt->host->hostname, presentation_ip);
+        for (in_port_t port = g_opts.port_range[0]; port < g_opts.port_range[1]; port++) {
+            printf("%-8u", port);
+            for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
+                if (g_opts.scans_to_perform[scan_type]) {
+                    printf("%-20s", get_port_status_str(scan_rslt->ports[port][scan_type]));
+                }
+            }
+            if ((servent = getservbyport(htons(port), "tcp")) != NULL) {
+                printf("%s", servent->s_name);
+            } else if ((servent = getservbyport(htons(port), "udp")) != NULL) {
+                printf("%s", servent->s_name);
+            } else {
+                printf("unknown");
+            }
 
-    //     for (in_port_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
-    //         printf("%u\t", port);
-    //         for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
-    //             if (g_opts.scans_to_perform[scan_type]) {
-    //                 switch (scan_rslt->ports[port][scan_type]) {
-    //                     case PORT_OPEN:
-    //                         printf("open\t");
-    //                         break;
-    //                     case PORT_CLOSED:
-    //                         printf("closed\t");
-    //                         break;
-    //                     case PORT_FILTERED:
-    //                         printf("filtered\t");
-    //                         break;
-    //                     case PORT_UNFILTERED:
-    //                         printf("unfiltered\t");
-    //                         break;
-    //                     case PORT_OPEN | PORT_FILTERED:
-    //                         printf("open|filtered\t");
-    //                         break;
-    //                     default:
-    //                         printf("unkown");
-    //                         break;
-    //                 }
-    //             }
-    //         }
-    //         printf("\n");
-    //     }
-    // }
+            printf("\n");
+        }
+    }
 }
