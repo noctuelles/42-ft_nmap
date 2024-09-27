@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 15:31:23 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 15:34:58 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -98,11 +98,11 @@ print_results(const t_ft_nmap *ft_nmap) {
         n_print += printf("%-8s", buffer);
         for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
             if (g_opts.scans_to_perform[scan_type]) {
-                snprintf(buffer, sizeof(buffer), "%s", g_available_scan_types[scan_type]);
+                snprintf(buffer, sizeof(buffer), "%s Scan", g_available_scan_types[scan_type]);
                 n_print += printf("%-20s", buffer);
             }
         }
-        n_print += printf("Service");
+        n_print += printf("Service Name (if applicable)");
         printf("\n");
         for (size_t n = 0; n < n_print; n++) {
             printf("-");
