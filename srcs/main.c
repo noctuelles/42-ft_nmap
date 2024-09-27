@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 22:35:10 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 15:39:28 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -121,7 +121,7 @@ main(int argc, char **argv) {
         goto cleanup;
     }
     for (t_list *host = ft_nmap.hosts; host != NULL; host = host->next) {
-        ft_nmap.scan_rslts[i].host = host->content;
+        ft_nmap.scan_rslts[i++].host = host->content;
         for (in_port_t port = g_opts.port_range[0]; port <= g_opts.port_range[1]; port++) {
             scan_queue_enqueue(ft_nmap.scan_queue, host->content, port);
         }

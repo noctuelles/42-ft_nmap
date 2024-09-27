@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 22:58:55 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 15:44:31 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -362,7 +362,7 @@ thread_routine(void *data) {
                 }
 
                 for (size_t i = 0; i < thread_ctx->nbr_hosts; i++) {
-                    if (thread_ctx->scan_rslts[i].host = to_scan->resv_host) {
+                    if (thread_ctx->scan_rslts[i].host == to_scan->resv_host) {
                         host_scan_rslt = &thread_ctx->scan_rslts[i];
                         break;
                     }

@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 15:34:58 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/27 15:40:20 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -90,7 +90,9 @@ print_results(const t_ft_nmap *ft_nmap) {
     printf("done in about %lu seconds.\n", ft_nmap->scan_end.tv_sec - ft_nmap->scan_start.tv_sec);
 
     for (size_t i = 0; i < ft_nmap->nbr_hosts; i++) {
+        n_print   = 0;
         scan_rslt = &ft_nmap->scan_rslts[i];
+
         (void)inet_ntop(AF_INET, &scan_rslt->host->sockaddr.sin_addr, presentation_ip, sizeof(presentation_ip));
         printf("Scan result for %s (%s)\n", scan_rslt->host->hostname, presentation_ip);
 
