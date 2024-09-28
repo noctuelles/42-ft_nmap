@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 20:52:40 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 21:24:39 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -349,9 +349,13 @@ thread_routine(void *data) {
 
     scan_ctx.src.sin_port = get_random_ephemeral_src_port();
     while ((to_scan = scan_queue_dequeue(thread_ctx->scan_queue)) != NULL) {
-        scan_ctx.src.sin_addr.s_addr = to_scan->resv_host->if_addr.sin_addr.s_addr;
-        scan_ctx.dst.sin_addr        = to_scan->resv_host->sockaddr.sin_addr;
-        scan_ctx.dst.sin_port        = to_scan->port;
+        if (g_opts.spoof_ip.s_addr != 0) {
+            scan_ctx.src.sin_addr.s_addr = g_opts.spoof_ip.s_addr;
+        } else {
+            scan_ctx.src.sin_addr.s_addr = to_scan->resv_host->if_addr.sin_addr.s_addr;
+        }
+        scan_ctx.dst.sin_addr = to_scan->resv_host->sockaddr.sin_addr;
+        scan_ctx.dst.sin_port = to_scan->port;
 
         for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
             if (g_opts.scans_to_perform[scan_type]) {

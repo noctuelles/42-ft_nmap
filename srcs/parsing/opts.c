@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 21:16:23 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 21:22:16 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -239,6 +239,12 @@ parse_opts(int argc, char **argv, t_opts *opts) {
                     return (-1);
                 }
                 g_opts.retrans_nbr = (uint8_t)rslt;
+                break;
+            case 'S':
+                if (inet_pton(AF_INET, optarg, &opts->spoof_ip) == 0) {
+                    error(0, 0, "invalid IP address: %s", optarg);
+                    return (-1);
+                }
                 break;
             case '?':
                 break;

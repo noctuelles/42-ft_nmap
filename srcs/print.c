@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 21:17:41 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 21:24:15 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -41,6 +41,7 @@ void
 print_intro(const t_ft_nmap *ft_nmap) {
     time_t    now    = time(NULL);
     struct tm now_tm = *localtime(&now);
+    char      ip[INET_ADDRSTRLEN];
     char      date[64];
 
     (void)strftime(date, sizeof(date), "%c", &now_tm);
@@ -51,6 +52,10 @@ print_intro(const t_ft_nmap *ft_nmap) {
     printf("Number of threads : %u\n", g_opts.threads);
     printf("Scanning ports : [%u;%u] - for a total of %u ports. \n", g_opts.port_range[0], g_opts.port_range[1],
            g_opts.port_range[1] - g_opts.port_range[0] + 1);
+    if (g_opts.spoof_ip.s_addr != 0) {
+        (void)inet_ntop(AF_INET, &g_opts.spoof_ip, ip, sizeof(ip));
+        printf("Spoofing with IP : %s\n", ip);
+    }
     printf("Scan(s) to be performed :");
     for (size_t n = 0; n < NBR_AVAILABLE_SCANS; n++) {
         if (g_opts.scans_to_perform[n]) {
