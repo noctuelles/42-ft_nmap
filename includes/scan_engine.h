@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:50:59 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 02:15:05 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 20:51:26 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -86,13 +86,7 @@ typedef struct s_scan_rslt {
     t_port_status      ports[MAX_PORT_RANGE][NBR_AVAILABLE_SCANS];
 } t_scan_rslt;
 
-typedef enum e_thread_type {
-    THREAD_HOST_LO,
-    THREAD_HOST_REMOTE,
-} t_thread_type;
-
 typedef struct s_thread_ctx {
-    t_thread_type thread_type;
     size_t        nbr_hosts;
     t_scan_rslt  *scan_rslts;
     t_scan_queue *scan_queue; /* Each thread picks a job (an IP:PORT pair) from this queue. */

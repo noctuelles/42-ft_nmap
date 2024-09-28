@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 02:15:24 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 20:52:40 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -249,7 +249,7 @@ scan_port(t_scan_ctx *scan_ctx) {
      * Event loop. We send the probe and wait for a response. If we don't receive any response under a specific timeframe, we
      * retransmit the probe.
      */
-    while (try_so_far < MAX_RETRIES) {
+    while (try_so_far < g_opts.retrans_nbr) {
         if (try_so_far != 0) {
             scan_ctx->src.sin_port += 1;
         }
@@ -268,7 +268,7 @@ scan_port(t_scan_ctx *scan_ctx) {
         try_so_far++;
 
     arm_poll:
-        if ((ret_val = poll(&pollfd, 1, RETRY_DELAY)) == -1) {
+        if ((ret_val = poll(&pollfd, 1, g_opts.retrans_delay)) == -1) {
             return (-1);
         } else if (ret_val == 0) {
             continue; /* A timeout occured; send the probe again. */
@@ -343,7 +343,6 @@ thread_routine(void *data) {
     if (Pcap_activate(scan_ctx.pcap_hdl) != 0) {
         goto clean_pcap;
     }
-    /* */
     if (pcap_datalink(scan_ctx.pcap_hdl) != DLT_LINUX_SLL) {
         goto clean_pcap;
     }

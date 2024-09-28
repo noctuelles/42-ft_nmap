@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 02:34:08 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 21:17:41 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,9 +24,9 @@ print_usage(void) {
     printf("  --help\t\tprint this help message.\n");
     printf("  --ports, -p\t\tThe port range to scan. The port range is inclusive and in the form <port>-<port>.\n");
     printf("  --host\t\tthe host to scan. Either a valid IPv4 address or a hostname.\n");
-    printf("  --speedup, -w\t\tthe number of threads to use for the scan.\n");
-    printf("  --retries, -r\t\tthe number of probe retransmissions before giving up.\n");
-    printf("  --delay, -d\t\tthe amount of time in milliseconds before attempting a retransmission.\n");
+    printf("  --speedup, -w\t\tthe number of threads to use for the scan (default %u).\n", DFLT_THREAD_COUNT);
+    printf("  --retries, -r\t\tthe number of probe retransmissions before giving up (default %u).\n", DFLT_RETRANS_NBR);
+    printf("  --delay, -d\t\tthe amount of time in milliseconds before attempting a retransmission (default %u).\n", DFLT_RETRANS_DELAY);
     printf("  --badsum, -b\t\tuse an invalid TCP, UDP checksum for packets sent to target hosts.\n");
     printf("  --spoofip, -S\t\tIP address of the interface you wish to send packets through.\n");
     printf(
@@ -45,6 +45,8 @@ print_intro(const t_ft_nmap *ft_nmap) {
 
     (void)strftime(date, sizeof(date), "%c", &now_tm);
     printf("Starting %s on %s.\n", program_invocation_short_name, date);
+    printf("Number of retransmissions : %u\n", g_opts.retrans_nbr);
+    printf("Delay between retransmissions : %ums\n", g_opts.retrans_delay);
     printf("Number of hosts to scan : %zu\n", ft_lstsize(ft_nmap->hosts));
     printf("Number of threads : %u\n", g_opts.threads);
     printf("Scanning ports : [%u;%u] - for a total of %u ports. \n", g_opts.port_range[0], g_opts.port_range[1],

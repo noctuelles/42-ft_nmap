@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 02:32:57 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 21:16:23 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -142,10 +142,34 @@ ok:
     return (0);
 }
 
+/**
+ * @brief Check if the input string is a valid number and if it is in the range.
+ *
+ * @param str The input string.
+ * @param neg If the number can be negative.
+ * @param max The maximum value the number can take.
+ * @param base The base of the number.
+ * @param arg_rslt The result of the conversion.
+ * @return int 0 on success, -1 if the input string is invalid.
+ */
+static int
+strtol_chk(const char *str, int64_t min, int64_t max, int32_t base, long *arg_rslt) {
+    char *endptr = NULL;
+    long  rslt   = strtol(str, &endptr, base);
+
+    if (errno == EINVAL || errno == ERANGE || *endptr != '\0' || rslt < min || rslt > max) {
+        return (-1);
+    } else {
+        *arg_rslt = rslt;
+    }
+    return (0);
+}
+
 int
 parse_opts(int argc, char **argv, t_opts *opts) {
-    int c       = 0;
-    int opt_idx = 0;
+    int  c       = 0;
+    int  opt_idx = 0;
+    long rslt    = 0;
 
     if (argc < 2) {
         error(0, 0, "too few arguments provided");
@@ -159,8 +183,8 @@ parse_opts(int argc, char **argv, t_opts *opts) {
     opts->threads         = 1;
     opts->host            = NULL;
     opts->hosts_file_path = NULL;
-    opts->retrans_delay   = RETRY_DELAY;
-    opts->retrans_nbr     = MAX_RETRIES;
+    opts->retrans_delay   = DFLT_RETRANS_DELAY;
+    opts->retrans_nbr     = DFLT_RETRANS_NBR;
     opts->help            = 0;
 
     while ((c = getopt_long(argc, argv, "bp:h:w:s:f:r:d:S:", g_long_options, &opt_idx)) != -1) {
@@ -177,10 +201,7 @@ parse_opts(int argc, char **argv, t_opts *opts) {
                 opts->host = optarg;
                 break;
             case 'w': {
-                char *endptr = NULL;
-                long  rslt   = strtol(optarg, &endptr, 10);
-
-                if (errno == EINVAL || errno == ERANGE || *endptr != '\0' || rslt < 0 || rslt > MAX_THREAD_COUNT) {
+                if (strtol_chk(optarg, MIN_THREAD_COUNT, MAX_THREAD_COUNT, 10, &rslt) == -1) {
                     error(0, 0,
                           "invalid number of threads: max "
                           "%u)",
@@ -204,6 +225,20 @@ parse_opts(int argc, char **argv, t_opts *opts) {
                 break;
             case 'b':
                 g_opts.bogus_checksum = true;
+                break;
+            case 'd':
+                if (strtol_chk(optarg, MIN_RETRANS_DELAY, MAX_RETRANS_DELAY, 10, &rslt) == -1) {
+                    error(0, 0, "invalid retransmission delay value -- should be between %u and %u.", MIN_RETRANS_DELAY, MAX_RETRANS_DELAY);
+                    return (-1);
+                }
+                g_opts.retrans_delay = (uint16_t)rslt;
+                break;
+            case 'r':
+                if (strtol_chk(optarg, MIN_RETRANS_NBR, MAX_RETRANS_NBR, 10, &rslt) == -1) {
+                    error(0, 0, "invalid retransmission value -- should be between %u and %u.", MIN_RETRANS_NBR, MAX_RETRANS_NBR);
+                    return (-1);
+                }
+                g_opts.retrans_nbr = (uint8_t)rslt;
                 break;
             case '?':
                 break;
