@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/25 12:00:38 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 23:25:37 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 02:21:34 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include "net/checksum.h"
+#include "parsing/opts.h"
 #include "utils/wrapper.h"
 
 static struct iphdr
@@ -92,6 +93,9 @@ send_tcp_packet(int sock, in_addr_t src_ip, in_port_t src_port, in_addr_t dst_ip
     tcp.doff     = 5;
     tcp.th_flags = flags;
     tcp.check    = compute_tcphdr_checksum(iphdr.saddr, iphdr.daddr, tcp, NULL, 0);
+    if (g_opts.bogus_checksum) {
+        tcp.check ^= rand() & 0xFFFF;
+    }
 
     memcpy(packet, &iphdr, sizeof(iphdr));
     memcpy(packet + sizeof(iphdr), &tcp, sizeof(tcp));
@@ -117,6 +121,9 @@ send_udp_packet(int sock_raw_fd, in_addr_t src_ip, in_port_t src_port, in_addr_t
     udphdr.dest   = htons(dst_port);
     udphdr.len    = htons(sizeof(udphdr));
     udphdr.check  = compute_udphdr_checksum(iphdr.saddr, iphdr.daddr, udphdr, NULL, 0);
+    if (g_opts.bogus_checksum) {
+        udphdr.check ^= rand() & 0xFFFF;
+    }
 
     memcpy(packet, &iphdr, sizeof(iphdr));
     memcpy(packet + sizeof(iphdr), &udphdr, sizeof(udphdr));

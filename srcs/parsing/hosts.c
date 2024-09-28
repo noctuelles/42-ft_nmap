@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:40 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 15:42:36 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 02:02:53 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,6 +28,7 @@ new_resv_host_node(struct addrinfo *res) {
     if ((resv_host = Malloc(sizeof(t_resv_host))) == NULL) {
         return (NULL);
     }
+    memset(resv_host, 0, sizeof(*resv_host));
     memcpy(&resv_host->sockaddr, res->ai_addr, res->ai_addrlen);
     if (res->ai_canonname == NULL) {
         resv_host->hostname = NULL;
@@ -56,11 +57,10 @@ free_resv_host(void *content) {
  * @brief Parse the host from a given file.
  *
  * @param filepath The file containing the hosts.
- * @param loopback A pointer to a boolean that will be set to true if one of the host resolves to the loopback address.
  * @return t_list* The list of t_resv_host, or NULL on error.
  */
 t_list *
-parse_host_from_file(const char *filepath, bool *loopback) {
+parse_host_from_file(const char *filepath) {
     FILE            *file     = NULL;
     char            *line     = NULL;
     char            *new_line = NULL;
@@ -85,9 +85,6 @@ parse_host_from_file(const char *filepath, bool *loopback) {
         if ((new_node = new_resv_host_node(res)) == NULL) {
             goto err_clean;
         }
-        if (((const struct sockaddr_in *)res->ai_addr)->sin_addr.s_addr == htonl(INADDR_LOOPBACK)) {
-            *loopback = true;
-        }
         ft_lstadd_back(&list, new_node);
         freeaddrinfo(res), res = NULL;
     }
@@ -108,11 +105,10 @@ clean:
  * @brief Parse host from a given string.
  *
  * @param str The string containing the host.
- * @param loopback A pointer to a boolean that will be set to true if the host resolves to the loopback address.
  * @return t_list* The list containing a single t_resv_host, or NULL on error.
  */
 t_list *
-parse_host_from_str(const char *str, bool *loopback) {
+parse_host_from_str(const char *str) {
     struct addrinfo *res      = NULL;
     t_list          *new_node = NULL;
     t_list          *list     = NULL;
@@ -123,9 +119,6 @@ parse_host_from_str(const char *str, bool *loopback) {
     if ((new_node = new_resv_host_node(res)) == NULL) {
         freeaddrinfo(res);
         return (NULL);
-    }
-    if (((const struct sockaddr_in *)res->ai_addr)->sin_addr.s_addr == htonl(INADDR_LOOPBACK)) {
-        *loopback = true;
     }
     ft_lstadd_back(&list, new_node);
     freeaddrinfo(res);

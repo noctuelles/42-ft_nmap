@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/06 22:50:51 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 15:39:03 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 02:25:33 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -20,10 +20,13 @@
 
 typedef struct s_opts {
     int                    help;
-    uint16_t               port_range[2];    /* The port range is inclusive  */
-    const char            *host;             /* The host to scan */
-    const char            *hosts_file_path;  /* The file containing the hosts to scan. */
-    uint16_t               threads;          /* The number of threads to use for the scan */
+    uint16_t               port_range[2];   /* The port range is inclusive  */
+    const char            *host;            /* The host to scan */
+    const char            *hosts_file_path; /* The file containing the hosts to scan. */
+    uint16_t               threads;         /* The number of threads to use for the scan */
+    uint8_t                retrans_nbr;
+    uint16_t               retrans_delay;
+    bool                   bogus_checksum;   /* Alter the checksum. */
     t_available_scans_list scans_to_perform; /* Each index */
 } t_opts;
 

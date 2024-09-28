@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 15:54:23 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 02:34:08 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,15 +21,19 @@ void
 print_usage(void) {
     printf("Usage: %s [OPTIONS] - this version only support IPv4.\n", program_invocation_short_name);
     printf("Options:\n");
-    printf("  --help\t\tPrint this help message.\n");
+    printf("  --help\t\tprint this help message.\n");
     printf("  --ports, -p\t\tThe port range to scan. The port range is inclusive and in the form <port>-<port>.\n");
-    printf("  --host\t\tThe host to scan. Either a valid IPv4 address or a hostname.\n");
-    printf("  --speedup, -w\t\tThe number of threads to use for the scan. \n");
+    printf("  --host\t\tthe host to scan. Either a valid IPv4 address or a hostname.\n");
+    printf("  --speedup, -w\t\tthe number of threads to use for the scan.\n");
+    printf("  --retries, -r\t\tthe number of probe retransmissions before giving up.\n");
+    printf("  --delay, -d\t\tthe amount of time in milliseconds before attempting a retransmission.\n");
+    printf("  --badsum, -b\t\tuse an invalid TCP, UDP checksum for packets sent to target hosts.\n");
+    printf("  --spoofip, -S\t\tIP address of the interface you wish to send packets through.\n");
     printf(
-        "  --scan, -s\t\tThe type of scan to perform. The scan type is a comma separated list of the following types: SYN, NULL, FIN, "
+        "  --scan, -s\t\tthe type of scan to perform. The scan type is a comma separated list of the following types: SYN, NULL, FIN, "
         "XMAS, ACK, UDP.\n");
     printf(
-        "  --file, -f\t\tThe file containing the hosts to scan. Note that you cannot set the -f and -h options : it's one or another, not "
+        "  --file, -f\t\tthe file containing the hosts to scan. Note that you cannot set the -f and -h options : it's one or another, not "
         "both.\n");
 }
 

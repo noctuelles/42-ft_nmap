@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/26 15:32:50 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 23:17:36 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 02:05:30 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -24,7 +24,7 @@
 
 #define MAX_THREAD_COUNT 250 /* Defines the maximum number of threads that can be used. */
 #define MAX_RETRIES 3        /* Defines how much try you should perform. */
-#define RETRY_DELAY 500      /* Defines the delay between each try in milliseconds. */
+#define RETRY_DELAY 800      /* Defines the delay between each try in milliseconds. */
 #define MAX_SNAPLEN 100      /* We won't need much data in the packets. */
 #define NBR_SCANNED_PORTS (g_opts.port_range[1] - g_opts.port_range[0] + 1)
 

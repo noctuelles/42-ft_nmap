@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/26 15:21:04 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 02:32:57 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,6 +28,10 @@ static struct option g_long_options[] = {{"help", no_argument, NULL, 0},
                                          {"speedup", required_argument, NULL, 'w'},
                                          {"scan", required_argument, NULL, 's'},
                                          {"file", required_argument, NULL, 'f'},
+                                         {"badsum", no_argument, NULL, 'b'},
+                                         {"delay", required_argument, NULL, 'd'},
+                                         {"retry", required_argument, NULL, 'r'},
+                                         {"spoofip", required_argument, NULL, 'S'},
                                          {NULL, 0, NULL, 0}};
 
 t_opts g_opts = {0}; /* Program options */
@@ -155,9 +159,11 @@ parse_opts(int argc, char **argv, t_opts *opts) {
     opts->threads         = 1;
     opts->host            = NULL;
     opts->hosts_file_path = NULL;
+    opts->retrans_delay   = RETRY_DELAY;
+    opts->retrans_nbr     = MAX_RETRIES;
     opts->help            = 0;
 
-    while ((c = getopt_long(argc, argv, "p:h:w:s:f:", g_long_options, &opt_idx)) != -1) {
+    while ((c = getopt_long(argc, argv, "bp:h:w:s:f:r:d:S:", g_long_options, &opt_idx)) != -1) {
         switch (c) {
             case 0:
                 if (strcmp(g_long_options[opt_idx].name, "help") == 0) {
@@ -195,6 +201,9 @@ parse_opts(int argc, char **argv, t_opts *opts) {
                 if (parse_port_range(optarg, opts->port_range) == 1) {
                     return (-1);
                 }
+                break;
+            case 'b':
+                g_opts.bogus_checksum = true;
                 break;
             case '?':
                 break;

@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 23:29:12 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 02:15:24 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,6 +28,7 @@
 
 #include "net/checksum.h"
 #include "net/packet.h"
+#include "parsing/opts.h"
 #include "pcap/sll.h"
 #include "utils/wrapper.h"
 
@@ -212,7 +213,7 @@ apply_pcap_filter(t_scan_ctx *scan_ctx) {
 
     (void)snprintf(filter, sizeof(filter), IS_TCP_SCAN(scan_ctx->type) ? FILTER_TCP : FILTER_UDP, presentation_src_ip, presentation_dst_ip,
                    scan_ctx->dst.sin_port, scan_ctx->src.sin_port);
-    if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, scan_ctx->netmask) == PCAP_ERROR) {
+    if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, PCAP_NETMASK_UNKNOWN) == PCAP_ERROR) {
         goto clean;
     }
     if (pcap_setfilter(scan_ctx->pcap_hdl, &bpf_prog) != 0) {
@@ -347,15 +348,14 @@ thread_routine(void *data) {
         goto clean_pcap;
     }
 
-    scan_ctx.src.sin_addr = thread_ctx->device.addr;
     scan_ctx.src.sin_port = get_random_ephemeral_src_port();
-    scan_ctx.netmask      = thread_ctx->device.netmask;
     while ((to_scan = scan_queue_dequeue(thread_ctx->scan_queue)) != NULL) {
-        scan_ctx.dst.sin_addr = to_scan->resv_host->sockaddr.sin_addr;
-        scan_ctx.dst.sin_port = to_scan->port;
+        scan_ctx.src.sin_addr.s_addr = to_scan->resv_host->if_addr.sin_addr.s_addr;
+        scan_ctx.dst.sin_addr        = to_scan->resv_host->sockaddr.sin_addr;
+        scan_ctx.dst.sin_port        = to_scan->port;
 
         for (t_scan_type scan_type = 0; scan_type < NBR_AVAILABLE_SCANS; scan_type++) {
-            if (thread_ctx->scans_to_perform[scan_type]) {
+            if (g_opts.scans_to_perform[scan_type]) {
                 host_scan_rslt       = NULL;
                 scan_ctx.type        = scan_type;
                 scan_ctx.port_status = PORT_UNDETERMINED;

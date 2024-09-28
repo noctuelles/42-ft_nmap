@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/27 15:39:28 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/28 02:15:36 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -36,21 +36,18 @@ cleanup(t_ft_nmap *ft_nmap) {
     ft_lstclear(&ft_nmap->hosts, free_resv_host);
     free(ft_nmap->scan_rslts);
     free_scan_queue(ft_nmap->scan_queue);
-    free(ft_nmap->devices_info[DEVICE_DFT].name);
-    free(ft_nmap->devices_info[DEVICE_LOOPBACK].name);
 }
 
-/**
- * @brief Get the suitable interface for the scan.
- *
- * @param devices The devices list, this is a result parameter.
- * @param loopback If this parameter is true, the function will also fill the loopback device section of the devices array.
- * @return int -1 on error, 0 on success.
- */
 static int
-get_devices(t_device_info devices[2], bool loopback) {
-    pcap_if_t *devs = NULL;
-    int        ret  = -1;
+fill_host_if_addr(t_list *hosts) {
+    pcap_if_t         *devs      = NULL;
+    pcap_if_t         *orig_devs = NULL;
+    t_resv_host       *resv_host = NULL;
+    int                ret       = -1;
+    struct sockaddr_in if_default_addr;
+    char               errbuff[PCAP_ERRBUF_SIZE];
+    bpf_u_int32        netmask;
+    bpf_u_int32        netaddr;
 
     if (Pcap_findalldevs(&devs) == PCAP_ERROR) {
         return (-1);
@@ -59,21 +56,39 @@ get_devices(t_device_info devices[2], bool loopback) {
         error(0, 0, "no network interface found.");
         return (-1);
     }
-    if (get_suitable_interface(devs, &devices[DEVICE_DFT], 0) == -1) {
-        error(0, 0, "no suitable network interface found.");
-        goto cleanup;
-    }
-    if (loopback) {
-        error(0, 0, "no suitable loopback interface found.");
-        if (get_suitable_interface(devs, &devices[DEVICE_LOOPBACK], PCAP_IF_LOOPBACK) == -1) {
-            free(devices[DEVICE_DFT].name);
-            goto cleanup;
+    for (struct pcap_addr *addr = devs->addresses; addr != NULL; addr = addr->next) {
+        if (addr->addr->sa_family == AF_INET) {
+            if_default_addr = *((const struct sockaddr_in *)addr->addr);
         }
     }
-    ret = 0;
-cleanup:
-    pcap_freealldevs(devs);
-    return (ret);
+    orig_devs = devs;
+    devs      = devs->next;
+    for (t_list *host = hosts; host != NULL; host = host->next) {
+        resv_host = host->content;
+        for (pcap_if_t *dev = devs; dev != NULL; dev = dev->next) {
+            if (!(dev->flags & PCAP_IF_UP) || !(dev->flags & PCAP_IF_RUNNING) ||
+                (dev->flags & PCAP_IF_CONNECTION_STATUS) == PCAP_IF_CONNECTION_STATUS_DISCONNECTED) {
+                continue;
+            }
+            if (pcap_lookupnet(dev->name, &netaddr, &netmask, errbuff) == PCAP_ERROR) {
+                continue;
+            }
+            if (netmask != 0x0 && netaddr != 0x0 && (resv_host->sockaddr.sin_addr.s_addr & netmask) == (netaddr & netmask)) {
+                for (struct pcap_addr *addr = dev->addresses; addr != NULL; addr = addr->next) {
+                    if (addr->addr->sa_family == AF_INET) {
+                        resv_host->if_addr = *((const struct sockaddr_in *)addr->addr);
+                        break;
+                    }
+                }
+            }
+        }
+        /* Assign default interface IP address. */
+        if (resv_host->if_addr.sin_addr.s_addr == 0x0) {
+            resv_host->if_addr = if_default_addr;
+        }
+    }
+    pcap_freealldevs(orig_devs);
+    return (0);
 }
 
 int
@@ -100,17 +115,17 @@ main(int argc, char **argv) {
     }
     /* Resolves hosts. */
     if (g_opts.host) {
-        if ((ft_nmap.hosts = parse_host_from_str(g_opts.host, &ft_nmap.hosts_loopback)) == NULL) {
+        if ((ft_nmap.hosts = parse_host_from_str(g_opts.host)) == NULL) {
             return (1);
         }
     } else if (g_opts.hosts_file_path) {
-        if ((ft_nmap.hosts = parse_host_from_file(g_opts.hosts_file_path, &ft_nmap.hosts_loopback)) == NULL) {
+        if ((ft_nmap.hosts = parse_host_from_file(g_opts.hosts_file_path)) == NULL) {
             return (1);
         }
     }
     ft_nmap.nbr_hosts = ft_lstsize(ft_nmap.hosts);
     /* Select proper interfaces for scan. */
-    if (get_devices(ft_nmap.devices_info, ft_nmap.hosts_loopback) == -1) {
+    if (fill_host_if_addr(ft_nmap.hosts) == -1) {
         goto cleanup;
     }
     /* Get scan ressources and fill the task queue. */
@@ -130,12 +145,10 @@ main(int argc, char **argv) {
     print_intro(&ft_nmap);
     (void)clock_gettime(CLOCK_MONOTONIC, &ft_nmap.scan_start);
     for (i = 0; i < g_opts.threads; i++) {
-        ft_nmap.threads[i].device      = ft_nmap.devices_info[DEVICE_DFT];
         ft_nmap.threads[i].scan_queue  = ft_nmap.scan_queue;
         ft_nmap.threads[i].scan_rslts  = ft_nmap.scan_rslts;
         ft_nmap.threads[i].nbr_hosts   = ft_nmap.nbr_hosts;
         ft_nmap.threads[i].thread_type = THREAD_HOST_REMOTE;
-        memcpy(&ft_nmap.threads[i].scans_to_perform, &g_opts.scans_to_perform, sizeof(g_opts.scans_to_perform));
 
         if (pthread_create(&ft_nmap.threads[i].thread_id, NULL, thread_routine, &ft_nmap.threads[i]) != 0) {
             error(0, 0, "failed to create a thread.");
