@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 21:24:39 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/09/29 14:40:31 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -214,7 +214,7 @@ apply_pcap_filter(t_scan_ctx *scan_ctx) {
     (void)snprintf(filter, sizeof(filter), IS_TCP_SCAN(scan_ctx->type) ? FILTER_TCP : FILTER_UDP, presentation_src_ip, presentation_dst_ip,
                    scan_ctx->dst.sin_port, scan_ctx->src.sin_port);
     if (pcap_compile(scan_ctx->pcap_hdl, &bpf_prog, filter, 0, PCAP_NETMASK_UNKNOWN) == PCAP_ERROR) {
-        goto clean;
+        goto ret;
     }
     if (pcap_setfilter(scan_ctx->pcap_hdl, &bpf_prog) != 0) {
         goto clean;
@@ -222,6 +222,7 @@ apply_pcap_filter(t_scan_ctx *scan_ctx) {
     ret_val = 0;
 clean:
     pcap_freecode(&bpf_prog);
+ret:
     return (ret_val);
 }
 
