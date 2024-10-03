@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:40 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 02:02:53 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/03 13:17:19 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -39,8 +39,7 @@ new_resv_host_node(struct addrinfo *res) {
         }
     }
     if ((new_node = ft_lstnew(resv_host)) == NULL) {
-        free(resv_host->hostname);
-        free(resv_host);
+        free_resv_host(resv_host);
         return (NULL);
     }
     return (new_node);
@@ -51,6 +50,7 @@ free_resv_host(void *content) {
     t_resv_host *resv_host = (t_resv_host *)content;
 
     free(resv_host->hostname);
+    free(resv_host);
 }
 
 /**
