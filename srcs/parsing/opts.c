@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 21:22:16 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/03 13:22:33 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -214,12 +214,12 @@ parse_opts(int argc, char **argv, t_opts *opts) {
             }
             case 's':
                 memset(g_opts.scans_to_perform, false, sizeof(g_opts.scans_to_perform));
-                if (parse_scan_type(optarg, opts->scans_to_perform) == 1) {
+                if (parse_scan_type(optarg, opts->scans_to_perform) == -1) {
                     return (-1);
                 }
                 break;
             case 'p':
-                if (parse_port_range(optarg, opts->port_range) == 1) {
+                if (parse_port_range(optarg, opts->port_range) == -1) {
                     return (-1);
                 }
                 break;
