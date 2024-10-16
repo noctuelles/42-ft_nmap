@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:47:08 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/29 14:40:31 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 17:44:58 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -85,6 +85,8 @@ get_tcp_flag(t_scan_type scan_type) {
  */
 static int
 process_packet(t_scan_ctx *scan_ctx, const u_char *pkt, const struct pcap_pkthdr *pkthdr) {
+    (void)pkthdr;
+
     size_t                ip_hdrlen = 0;
     const struct ip      *iphdr     = NULL;
     const struct tcphdr  *tcphdr    = NULL;
@@ -304,6 +306,7 @@ scan_port(t_scan_ctx *scan_ctx) {
                 break;
             case STYPE_ACK:
                 scan_ctx->port_status = PORT_FILTERED;
+                break;
             case STYPE_UDP:
                 scan_ctx->port_status = PORT_OPEN | PORT_FILTERED;
         }

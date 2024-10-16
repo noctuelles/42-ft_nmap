@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/10/03 13:22:33 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 17:41:09 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -125,14 +125,14 @@ parse_port_range(const char *input_port_range, uint16_t port_range[2]) {
     if (port_range[0] > port_range[1]) {
         goto invalid_port_range;
     }
-    if (port_range[1] - port_range[0] > MAX_PORT_RANGE) {
+    if (port_range[1] - port_range[0] >= MAX_PORT_RANGE) {
         goto max_port_exceeded;
     }
     goto ok;
 invalid_port_range:
     error(0, 0,
           "invalid port range -- should be between %u and %u (inclusive) and "
-          "in the form <port1>-<port2> where port1 > port2.",
+          "in the form <port1>-<port2> where port1 >= port2.",
           1, UINT16_MAX);
     return (-1);
 max_port_exceeded:

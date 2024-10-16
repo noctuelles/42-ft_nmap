@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/27 14:55:45 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 21:24:15 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 17:27:34 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -48,7 +48,7 @@ print_intro(const t_ft_nmap *ft_nmap) {
     printf("Starting %s on %s.\n", program_invocation_short_name, date);
     printf("Number of retransmissions : %u\n", g_opts.retrans_nbr);
     printf("Delay between retransmissions : %ums\n", g_opts.retrans_delay);
-    printf("Number of hosts to scan : %zu\n", ft_lstsize(ft_nmap->hosts));
+    printf("Number of hosts to scan : %u\n", ft_lstsize(ft_nmap->hosts));
     printf("Number of threads : %u\n", g_opts.threads);
     printf("Scanning ports : [%u;%u] - for a total of %u ports. \n", g_opts.port_range[0], g_opts.port_range[1],
            g_opts.port_range[1] - g_opts.port_range[0] + 1);
@@ -72,22 +72,25 @@ print_intro(const t_ft_nmap *ft_nmap) {
 
 const char *
 get_port_status_str(t_port_status port_status) {
-    switch (port_status) {
-        case PORT_UNDETERMINED:
-            return ("undetermined");
-        case PORT_OPEN:
-            return ("open");
-        case PORT_CLOSED:
-            return ("closed");
-        case PORT_FILTERED:
-            return ("filtered");
-        case PORT_UNFILTERED:
-            return ("unfiltered");
-        case PORT_OPEN | PORT_FILTERED:
-            return ("open|filtered");
-        default:
-            return ("unknown");
+    if (port_status == PORT_UNDETERMINED) {
+        return ("undetermined");
     }
+    if (port_status == PORT_OPEN) {
+        return ("open");
+    }
+    if (port_status == PORT_CLOSED) {
+        return ("closed");
+    }
+    if (port_status == PORT_FILTERED) {
+        return ("filtered");
+    }
+    if (port_status == PORT_UNFILTERED) {
+        return ("unfiltered");
+    }
+    if (port_status == (PORT_OPEN | PORT_FILTERED)) {
+        return ("open|filtered");
+    }
+    return ("unknown");
 }
 
 void

@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/17 16:50:59 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 20:51:26 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 17:45:06 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -83,7 +83,7 @@ typedef enum e_port_status {
 
 typedef struct s_scan_rslt {
     const t_resv_host *host; /* The scanned host. */
-    t_port_status      ports[MAX_PORT_RANGE][NBR_AVAILABLE_SCANS];
+    t_port_status      ports[MAX_PORT_RANGE + 1][NBR_AVAILABLE_SCANS];
 } t_scan_rslt;
 
 typedef struct s_thread_ctx {

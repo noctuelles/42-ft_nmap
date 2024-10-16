@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 21:10:51 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 17:28:29 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -43,7 +43,6 @@ fill_host_if_addr(t_list *hosts) {
     pcap_if_t         *devs      = NULL;
     pcap_if_t         *orig_devs = NULL;
     t_resv_host       *resv_host = NULL;
-    int                ret       = -1;
     struct sockaddr_in if_default_addr;
     char               errbuff[PCAP_ERRBUF_SIZE];
     bpf_u_int32        netmask;

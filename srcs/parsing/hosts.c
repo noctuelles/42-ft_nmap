@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:40 by plouvel           #+#    #+#             */
-/*   Updated: 2024/10/03 13:17:19 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 17:47:06 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -113,7 +113,7 @@ parse_host_from_str(const char *str) {
     t_list          *new_node = NULL;
     t_list          *list     = NULL;
 
-    if ((res = res_host_serv(str, NULL, AF_INET, SOCK_STREAM)) == NULL) {
+    if ((res = res_host_serv(str, NULL, AF_INET, SOCK_RAW)) == NULL) {
         return (NULL);
     }
     if ((new_node = new_resv_host_node(res)) == NULL) {

@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/25 12:00:38 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 02:21:34 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 17:26:06 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -75,6 +75,8 @@ send_icmp_echo_request(int sock, in_addr_t src_ip, in_addr_t dst_ip, uint16_t se
     if (Sendto(sock, packet, sizeof(iphdr) + sizeof(icmp) + sizeof(now), 0, (const struct sockaddr *)&destsock, sizeof(destsock)) == -1) {
         return (-1);
     }
+
+    return (0);
 }
 
 int
