@@ -4,6 +4,3 @@
 [submodule "libft"]
 	path = libft
 	url = https://github.com/noctuelles/42-libft.git
-[submodule "libunity"]
-	path = libunity
-	url = https://github.com/ThrowTheSwitch/Unity.git
