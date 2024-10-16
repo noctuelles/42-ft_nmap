@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/01 16:56:30 by plouvel           #+#    #+#             */
-/*   Updated: 2024/10/16 17:28:29 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 19:12:20 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -142,6 +142,9 @@ main(int argc, char **argv) {
     }
     /* Fill threads context and launch them. */
     print_intro(&ft_nmap);
+    if (g_opts.threads == 0) {
+        g_opts.threads = 1;
+    }
     (void)clock_gettime(CLOCK_MONOTONIC, &ft_nmap.scan_start);
     for (i = 0; i < g_opts.threads; i++) {
         ft_nmap.threads[i].scan_queue = ft_nmap.scan_queue;

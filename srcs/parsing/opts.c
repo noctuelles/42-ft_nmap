@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/10/16 17:41:09 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 19:12:42 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -180,7 +180,7 @@ parse_opts(int argc, char **argv, t_opts *opts) {
     memset(g_opts.scans_to_perform, true, sizeof(g_opts.scans_to_perform));
     opts->port_range[0]   = DFLT_PORT_RANGE_START;
     opts->port_range[1]   = DFLT_PORT_RANGE_END;
-    opts->threads         = 1;
+    opts->threads         = DFLT_THREAD_COUNT;
     opts->host            = NULL;
     opts->hosts_file_path = NULL;
     opts->retrans_delay   = DFLT_RETRANS_DELAY;

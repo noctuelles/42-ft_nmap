@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/26 15:32:50 by plouvel           #+#    #+#             */
-/*   Updated: 2024/09/28 21:18:01 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/16 19:11:44 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,7 +26,7 @@
 #define DFLT_RETRANS_NBR 3                 /* Defines how much try you should perform. */
 #define DFLT_RETRANS_DELAY 800             /* Defines the delay between each try in milliseconds. */
 #define MAX_THREAD_COUNT 250               /* Defines the maximum number of threads that can be used. */
-#define MIN_THREAD_COUNT 1                 /* Defines the minimum number of threads that can be used. */
+#define MIN_THREAD_COUNT 0                 /* Defines the minimum number of threads that can be used. */
 #define DFLT_THREAD_COUNT MIN_THREAD_COUNT /* Defines the default number of threads to use. */
 #define MAX_SNAPLEN 100                    /* We won't need much data in the packets. */
 #define NBR_SCANNED_PORTS (g_opts.port_range[1] - g_opts.port_range[0] + 1)
