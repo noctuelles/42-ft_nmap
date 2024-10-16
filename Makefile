@@ -6,11 +6,9 @@
 #    By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2024/09/01 17:00:47 by plouvel           #+#    #+#              #
-#    Updated: 2024/10/16 18:03:17 by plouvel          ###   ########.fr        #
+#    Updated: 2024/10/16 18:07:28 by plouvel          ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
-
-#ft_nmap
 
 LIBPCAP_DIR=libpcap
 LIBFT_DIR=libft
