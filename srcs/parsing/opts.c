@@ -6,7 +6,7 @@
 /*   By: plouvel <plouvel@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/09/10 13:36:52 by plouvel           #+#    #+#             */
-/*   Updated: 2024/10/16 19:12:42 by plouvel          ###   ########.fr       */
+/*   Updated: 2024/10/17 13:59:02 by plouvel          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -115,28 +115,33 @@ parse_port_range(const char *input_port_range, uint16_t port_range[2]) {
     }
     port_range[0] = val;
     if ((token = strtok(NULL, "-")) == NULL) {
-        goto invalid_port_range;
+        port_range[1] = port_range[0];
+        goto check;
     }
     val = strtol(token, &endptr, 10);
     if (errno == EINVAL || errno == ERANGE || *endptr != '\0' || val < MIN_PORT || val > UINT16_MAX) {
         goto invalid_port_range;
     }
     port_range[1] = val;
+check:
     if (port_range[0] > port_range[1]) {
         goto invalid_port_range;
     }
     if (port_range[1] - port_range[0] >= MAX_PORT_RANGE) {
         goto max_port_exceeded;
     }
+    if (port_range[0] > MAX_PORT_RANGE || port_range[1] > MAX_PORT_RANGE) {
+        goto max_port_exceeded;
+    }
     goto ok;
 invalid_port_range:
     error(0, 0,
           "invalid port range -- should be between %u and %u (inclusive) and "
-          "in the form <port1>-<port2> where port1 >= port2.",
-          1, UINT16_MAX);
+          "in the form <port1>-<port2> where port1 >= port2 OR in the form of <port1>",
+          1, MAX_PORT_RANGE);
     return (-1);
 max_port_exceeded:
-    error(0, 0, "invalid port range -- the numbers of ports scanned cannot exceed %u.", MAX_PORT_RANGE);
+    error(0, 0, "invalid port range -- the numbers of ports scanned cannot exceed %u OR cannot exceed %u", MAX_PORT_RANGE, MAX_PORT_RANGE);
     return (-1);
 ok:
     return (0);
